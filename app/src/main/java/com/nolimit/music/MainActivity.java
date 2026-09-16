@@ -1,6 +1,7 @@
 package com.nolimit.music;
 
 import android.content.ComponentName;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
@@ -13,10 +14,11 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
@@ -33,6 +35,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.nolimit.music.data.LibraryStore;
+import com.nolimit.music.data.LocalBackupStore;
 import com.nolimit.music.data.PlaylistStore;
 import com.nolimit.music.data.YoutubeChartsRepository;
 import com.nolimit.music.data.YoutubeRepository;
@@ -62,6 +65,7 @@ public final class MainActivity extends AppCompatActivity {
     private YoutubeChartsRepository charts;
     private LibraryStore library;
     private PlaylistStore playlists;
+    private LocalBackupStore backupStore;
     private SharedPreferences settings;
 
     private SearchResultAdapter resultsAdapter;
@@ -70,6 +74,8 @@ public final class MainActivity extends AppCompatActivity {
 
     private ListenableFuture<MediaController> controllerFuture;
     private MediaController controller;
+    private ActivityResultLauncher<Intent> backupCreateLauncher;
+    private ActivityResultLauncher<Intent> backupOpenLauncher;
 
     private EditText searchInput;
     private Button searchButton;
@@ -114,7 +120,9 @@ public final class MainActivity extends AppCompatActivity {
         charts = new YoutubeChartsRepository();
         library = new LibraryStore(this);
         playlists = new PlaylistStore(this, library);
+        backupStore = new LocalBackupStore(this);
 
+        setupBackupLaunchers();
         bindViews();
         setupLists();
         setupPlaybackController();
@@ -124,6 +132,42 @@ public final class MainActivity extends AppCompatActivity {
         loadCharts();
         showFirstRunNotice();
         initializeEngine();
+    }
+
+    private void setupBackupLaunchers() {
+        backupCreateLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() != RESULT_OK || result.getData() == null || result.getData().getData() == null) return;
+            Uri uri = result.getData().getData();
+            io.execute(() -> {
+                try {
+                    backupStore.exportTo(uri);
+                    runOnUiThread(() -> toast("플레이리스트 백업을 저장했습니다."));
+                } catch (Exception e) {
+                    runOnUiThread(() -> toast("백업 실패 · " + compactError(e)));
+                }
+            });
+        });
+
+        backupOpenLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() != RESULT_OK || result.getData() == null || result.getData().getData() == null) return;
+            Uri uri = result.getData().getData();
+            io.execute(() -> {
+                try {
+                    backupStore.importFrom(uri);
+                    runOnUiThread(() -> {
+                        settings = getSharedPreferences("settings", MODE_PRIVATE);
+                        playlists = new PlaylistStore(this, library);
+                        activeSmart = null;
+                        activePlaylistId = PlaylistStore.DEFAULT_ID;
+                        autoplaySwitch.setChecked(settings.getBoolean("autoplay", true));
+                        refreshAll();
+                        toast("백업 복원 완료 · 없는 음악 파일은 곡을 누르면 다시 저장합니다.");
+                    });
+                } catch (Exception e) {
+                    runOnUiThread(() -> toast("복원 실패 · " + compactError(e)));
+                }
+            });
+        });
     }
 
     private void bindViews() {
@@ -160,6 +204,7 @@ public final class MainActivity extends AppCompatActivity {
         RecyclerView playlist = findViewById(R.id.rvPlaylist);
         results.setLayoutManager(new LinearLayoutManager(this));
         chartList.setLayoutManager(new LinearLayoutManager(this));
+        chartList.setNestedScrollingEnabled(false);
         playlist.setLayoutManager(new LinearLayoutManager(this));
 
         resultsAdapter = new SearchResultAdapter(this::download);
@@ -247,11 +292,28 @@ public final class MainActivity extends AppCompatActivity {
         findViewById(R.id.cardMostPlayed).setOnClickListener(v -> openSmartPlaylist(SMART_MOST));
         findViewById(R.id.btnCreatePlaylist).setOnClickListener(v -> showCreatePlaylistDialog());
         findViewById(R.id.btnPlayAll).setOnClickListener(v -> playQueue(getActiveTracks(), null));
+        findViewById(R.id.btnExportBackup).setOnClickListener(v -> exportBackup());
+        findViewById(R.id.btnImportBackup).setOnClickListener(v -> importBackup());
 
         autoplaySwitch.setChecked(settings.getBoolean("autoplay", true));
         autoplaySwitch.setOnCheckedChangeListener((button, checked) -> settings.edit().putBoolean("autoplay", checked).apply());
         findViewById(R.id.btnLightTheme).setOnClickListener(v -> setThemePreference("light"));
         findViewById(R.id.btnDarkTheme).setOnClickListener(v -> setThemePreference("dark"));
+    }
+
+    private void exportBackup() {
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_TITLE, "NoLimitMusic-playlists-backup.json");
+        backupCreateLauncher.launch(intent);
+    }
+
+    private void importBackup() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        backupOpenLauncher.launch(intent);
     }
 
     private void switchTab(String tab) {
@@ -272,6 +334,7 @@ public final class MainActivity extends AppCompatActivity {
 
     private void setNavActive(TextView icon, boolean active) {
         icon.setBackgroundResource(active ? R.drawable.bg_nav_active : 0);
+        icon.setAlpha(active ? 1f : 0.62f);
     }
 
     private void initializeEngine() {
@@ -290,7 +353,7 @@ public final class MainActivity extends AppCompatActivity {
         chartStatus.setText("불러오는 중");
         io.execute(() -> {
             try {
-                List<SearchResult> list = charts.loadKoreaTopSongs(10);
+                List<SearchResult> list = charts.loadKoreaTopSongs(20);
                 runOnUiThread(() -> {
                     chartsAdapter.submit(list);
                     chartStatus.setText(list.isEmpty() ? "표시할 차트 없음" : "주간 Top " + list.size());
@@ -298,7 +361,7 @@ public final class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     chartsAdapter.submit(Collections.emptyList());
-                    chartStatus.setText("차트 일시 사용 불가");
+                    chartStatus.setText("차트 오류 · " + compactError(e));
                 });
             }
         });
@@ -404,6 +467,25 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void playFromActiveList(Track track) {
+        if (!new File(track.path).exists()) {
+            if (!engineReady) {
+                toast("음악 엔진을 준비하는 중입니다.");
+                return;
+            }
+            toast("백업에서 복원된 곡입니다. 음악 파일을 다시 저장합니다.");
+            SearchResult recovery = new SearchResult(
+                    track.id,
+                    track.title,
+                    track.artist,
+                    "https://www.youtube.com/watch?v=" + track.id,
+                    track.durationSeconds,
+                    "",
+                    0,
+                    "복원 곡"
+            );
+            download(recovery, -1);
+            return;
+        }
         if (settings.getBoolean("autoplay", true)) playQueue(getActiveTracks(), track.id);
         else playQueue(Collections.singletonList(track), track.id);
     }
