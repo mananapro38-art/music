@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
@@ -12,8 +14,10 @@ import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,6 +27,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.ContextCompat;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
@@ -45,12 +50,14 @@ import com.nolimit.music.model.Track;
 import com.nolimit.music.playback.PlaybackService;
 import com.nolimit.music.ui.PlaylistAdapter;
 import com.nolimit.music.ui.SearchResultAdapter;
+import com.nolimit.music.util.ArtworkLoader;
 import com.nolimit.music.util.NetworkUtil;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -58,8 +65,16 @@ public final class MainActivity extends AppCompatActivity {
     private static final String SMART_RECENT = "smart_recent";
     private static final String SMART_LIKED = "smart_liked";
     private static final String SMART_MOST = "smart_most";
+    private static final String KEY_ALLOW_MOBILE_DOWNLOAD = "allow_mobile_download";
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable positionTicker = new Runnable() {
+        @Override public void run() {
+            updatePlayerProgress();
+            mainHandler.postDelayed(this, 500L);
+        }
+    };
 
     private YoutubeRepository youtube;
     private YoutubeChartsRepository charts;
@@ -85,14 +100,19 @@ public final class MainActivity extends AppCompatActivity {
     private TextView playlistTitle;
     private LinearLayout playlistFolders;
     private LinearLayout playerBar;
+    private ImageView nowArtwork;
     private TextView nowPlaying;
     private TextView nowArtist;
     private TextView playPause;
+    private SeekBar playerSeek;
+    private TextView currentTime;
+    private TextView totalTime;
     private TextView chartStatus;
     private TextView recentCount;
     private TextView likedCount;
     private TextView mostPlayedCount;
     private MaterialSwitch autoplaySwitch;
+    private MaterialSwitch mobileDownloadSwitch;
 
     private View sectionHome;
     private View sectionSearch;
@@ -107,6 +127,8 @@ public final class MainActivity extends AppCompatActivity {
     private String activeSmart = null;
     private volatile boolean engineReady = false;
     private volatile boolean downloadRunning = false;
+    private boolean userSeeking = false;
+    private boolean suppressSettingCallbacks = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -132,6 +154,7 @@ public final class MainActivity extends AppCompatActivity {
         loadCharts();
         showFirstRunNotice();
         initializeEngine();
+        mainHandler.post(positionTicker);
     }
 
     private void setupBackupLaunchers() {
@@ -159,8 +182,9 @@ public final class MainActivity extends AppCompatActivity {
                         playlists = new PlaylistStore(this, library);
                         activeSmart = null;
                         activePlaylistId = PlaylistStore.DEFAULT_ID;
-                        autoplaySwitch.setChecked(settings.getBoolean("autoplay", true));
+                        syncSettingsUi();
                         refreshAll();
+                        updateReadyStatus();
                         toast("백업 복원 완료 · 없는 음악 파일은 곡을 누르면 다시 저장합니다.");
                     });
                 } catch (Exception e) {
@@ -179,14 +203,19 @@ public final class MainActivity extends AppCompatActivity {
         playlistTitle = findViewById(R.id.tvPlaylistTitle);
         playlistFolders = findViewById(R.id.playlistFolders);
         playerBar = findViewById(R.id.playerBar);
+        nowArtwork = findViewById(R.id.ivNowArtwork);
         nowPlaying = findViewById(R.id.tvNowPlaying);
         nowArtist = findViewById(R.id.tvNowArtist);
         playPause = findViewById(R.id.btnPlayPause);
+        playerSeek = findViewById(R.id.playerSeek);
+        currentTime = findViewById(R.id.tvCurrentTime);
+        totalTime = findViewById(R.id.tvDuration);
         chartStatus = findViewById(R.id.tvChartStatus);
         recentCount = findViewById(R.id.tvRecentCount);
         likedCount = findViewById(R.id.tvLikedCount);
         mostPlayedCount = findViewById(R.id.tvMostPlayedCount);
         autoplaySwitch = findViewById(R.id.switchAutoplay);
+        mobileDownloadSwitch = findViewById(R.id.switchMobileDownload);
 
         sectionHome = findViewById(R.id.sectionHome);
         sectionSearch = findViewById(R.id.sectionSearch);
@@ -205,6 +234,7 @@ public final class MainActivity extends AppCompatActivity {
         results.setLayoutManager(new LinearLayoutManager(this));
         chartList.setLayoutManager(new LinearLayoutManager(this));
         chartList.setNestedScrollingEnabled(false);
+        chartList.setHasFixedSize(false);
         playlist.setLayoutManager(new LinearLayoutManager(this));
 
         resultsAdapter = new SearchResultAdapter(this::download);
@@ -248,6 +278,7 @@ public final class MainActivity extends AppCompatActivity {
                 controller = controllerFuture.get();
                 controller.addListener(new Player.Listener() {
                     @Override public void onIsPlayingChanged(boolean isPlaying) { syncPlayerUi(); }
+                    @Override public void onPlaybackStateChanged(int playbackState) { syncPlayerUi(); }
                     @Override public void onMediaItemTransition(MediaItem mediaItem, int reason) {
                         syncPlayerUi();
                         refreshDashboard();
@@ -269,6 +300,25 @@ public final class MainActivity extends AppCompatActivity {
         });
         findViewById(R.id.btnNext).setOnClickListener(v -> {
             if (controller != null) controller.seekToNextMediaItem();
+        });
+
+        playerSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (!fromUser || controller == null) return;
+                long duration = effectiveDurationMs();
+                if (duration > 0) currentTime.setText(formatTime(duration * progress / 1000L));
+            }
+
+            @Override public void onStartTrackingTouch(SeekBar seekBar) { userSeeking = true; }
+
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {
+                if (controller != null) {
+                    long duration = effectiveDurationMs();
+                    if (duration > 0) controller.seekTo(duration * seekBar.getProgress() / 1000L);
+                }
+                userSeeking = false;
+                updatePlayerProgress();
+            }
         });
     }
 
@@ -295,10 +345,49 @@ public final class MainActivity extends AppCompatActivity {
         findViewById(R.id.btnExportBackup).setOnClickListener(v -> exportBackup());
         findViewById(R.id.btnImportBackup).setOnClickListener(v -> importBackup());
 
-        autoplaySwitch.setChecked(settings.getBoolean("autoplay", true));
-        autoplaySwitch.setOnCheckedChangeListener((button, checked) -> settings.edit().putBoolean("autoplay", checked).apply());
+        syncSettingsUi();
+        autoplaySwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (!suppressSettingCallbacks) settings.edit().putBoolean("autoplay", checked).apply();
+        });
+        mobileDownloadSwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (suppressSettingCallbacks) return;
+            if (checked) showMobileDataConfirmation();
+            else {
+                settings.edit().putBoolean(KEY_ALLOW_MOBILE_DOWNLOAD, false).apply();
+                updateReadyStatus();
+            }
+        });
         findViewById(R.id.btnLightTheme).setOnClickListener(v -> setThemePreference("light"));
         findViewById(R.id.btnDarkTheme).setOnClickListener(v -> setThemePreference("dark"));
+    }
+
+    private void syncSettingsUi() {
+        suppressSettingCallbacks = true;
+        autoplaySwitch.setChecked(settings.getBoolean("autoplay", true));
+        mobileDownloadSwitch.setChecked(settings.getBoolean(KEY_ALLOW_MOBILE_DOWNLOAD, false));
+        suppressSettingCallbacks = false;
+    }
+
+    private void showMobileDataConfirmation() {
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("모바일 데이터 다운로드 허용")
+                .setMessage("LTE/5G에서도 음악 파일을 저장합니다. 곡에 따라 데이터 사용량이 커질 수 있습니다.")
+                .setPositiveButton("허용", (d, w) -> {
+                    settings.edit().putBoolean(KEY_ALLOW_MOBILE_DOWNLOAD, true).apply();
+                    updateReadyStatus();
+                })
+                .setNegativeButton("취소", (d, w) -> setMobileSwitchWithoutCallback(false))
+                .create();
+        dialog.setOnCancelListener(d -> setMobileSwitchWithoutCallback(false));
+        dialog.show();
+    }
+
+    private void setMobileSwitchWithoutCallback(boolean value) {
+        suppressSettingCallbacks = true;
+        mobileDownloadSwitch.setChecked(value);
+        suppressSettingCallbacks = false;
+        if (!value) settings.edit().putBoolean(KEY_ALLOW_MOBILE_DOWNLOAD, false).apply();
+        updateReadyStatus();
     }
 
     private void exportBackup() {
@@ -342,18 +431,26 @@ public final class MainActivity extends AppCompatActivity {
             try {
                 youtube.init();
                 engineReady = true;
-                runOnUiThread(() -> engineStatus.setText("음악 엔진 준비됨 · Wi‑Fi에서 저장 · 백그라운드 재생"));
+                runOnUiThread(this::updateReadyStatus);
             } catch (Exception e) {
                 runOnUiThread(() -> engineStatus.setText("엔진 준비 실패 · " + compactError(e)));
             }
         });
     }
 
+    private void updateReadyStatus() {
+        if (!engineReady || engineStatus == null) return;
+        boolean mobile = settings.getBoolean(KEY_ALLOW_MOBILE_DOWNLOAD, false);
+        engineStatus.setText(mobile
+                ? "음악 엔진 준비됨 · Wi‑Fi/모바일 데이터 저장 · 백그라운드 재생"
+                : "음악 엔진 준비됨 · Wi‑Fi에서만 저장 · 백그라운드 재생");
+    }
+
     private void loadCharts() {
         chartStatus.setText("불러오는 중");
         io.execute(() -> {
             try {
-                List<SearchResult> list = charts.loadKoreaTopSongs(20);
+                List<SearchResult> list = charts.loadKoreaTopSongs(50);
                 runOnUiThread(() -> {
                     chartsAdapter.submit(list);
                     chartStatus.setText(list.isEmpty() ? "표시할 차트 없음" : "주간 Top " + list.size());
@@ -413,10 +510,13 @@ public final class MainActivity extends AppCompatActivity {
             toast("현재 다른 곡을 저장 중입니다.");
             return;
         }
-        if (!NetworkUtil.isWifiConnected(this)) {
+        boolean allowMobile = settings.getBoolean(KEY_ALLOW_MOBILE_DOWNLOAD, false);
+        if (!NetworkUtil.canDownload(this, allowMobile)) {
             new AlertDialog.Builder(this)
-                    .setTitle("Wi‑Fi가 필요합니다")
-                    .setMessage("저장은 Wi‑Fi 연결 상태에서만 시작합니다. 이미 저장된 곡의 재생은 오프라인에서도 가능합니다.")
+                    .setTitle(allowMobile ? "인터넷 연결이 필요합니다" : "Wi‑Fi가 필요합니다")
+                    .setMessage(allowMobile
+                            ? "현재 인터넷에 연결되어 있지 않습니다."
+                            : "설정에서 모바일 데이터 다운로드를 허용하지 않은 경우 Wi‑Fi에서만 저장합니다.")
                     .setPositiveButton("확인", null)
                     .show();
             return;
@@ -436,16 +536,31 @@ public final class MainActivity extends AppCompatActivity {
                     engineStatus.setText("저장 중 " + p + "%");
                 }));
 
-                Track track = new Track(item.id, item.title, item.channel, file.getAbsolutePath(), item.durationSeconds, System.currentTimeMillis());
+                ArtworkLoader.cacheToDisk(this, item.id, item.thumbnail);
+                Track track = new Track(
+                        item.id,
+                        item.title,
+                        item.channel,
+                        file.getAbsolutePath(),
+                        item.durationSeconds,
+                        System.currentTimeMillis(),
+                        false,
+                        0,
+                        0L,
+                        item.thumbnail
+                );
                 library.upsert(track);
+                Track saved = library.find(track.id);
+                if (saved != null) track = saved;
                 playlists.addTrack(PlaylistStore.DEFAULT_ID, track.id);
+                Track finalTrack = track;
                 runOnUiThread(() -> {
                     downloadRunning = false;
                     resultsAdapter.clearProgress();
                     chartsAdapter.clearProgress();
                     refreshAll();
                     engineStatus.setText("저장 완료 · 내 플레이리스트에 추가됨");
-                    playDownloaded(track);
+                    playDownloaded(finalTrack);
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
@@ -473,13 +588,15 @@ public final class MainActivity extends AppCompatActivity {
                 return;
             }
             toast("백업에서 복원된 곡입니다. 음악 파일을 다시 저장합니다.");
+            String thumbnail = track.thumbnailUrl == null || track.thumbnailUrl.isEmpty()
+                    ? ArtworkLoader.fallbackUrl(track.id) : track.thumbnailUrl;
             SearchResult recovery = new SearchResult(
                     track.id,
                     track.title,
                     track.artist,
                     "https://www.youtube.com/watch?v=" + track.id,
                     track.durationSeconds,
-                    "",
+                    thumbnail,
                     0,
                     "복원 곡"
             );
@@ -501,14 +618,15 @@ public final class MainActivity extends AppCompatActivity {
             File file = new File(track.path);
             if (!file.exists()) continue;
             if (startId != null && startId.equals(track.id)) startIndex = items.size();
-            MediaMetadata metadata = new MediaMetadata.Builder()
+            MediaMetadata.Builder metadata = new MediaMetadata.Builder()
                     .setTitle(track.title)
-                    .setArtist(track.artist)
-                    .build();
+                    .setArtist(track.artist);
+            Uri artwork = ArtworkLoader.bestArtworkUri(this, track.id, track.thumbnailUrl);
+            if (artwork != null) metadata.setArtworkUri(artwork);
             items.add(new MediaItem.Builder()
                     .setMediaId(track.id)
                     .setUri(Uri.fromFile(file))
-                    .setMediaMetadata(metadata)
+                    .setMediaMetadata(metadata.build())
                     .build());
         }
         if (items.isEmpty()) {
@@ -524,6 +642,10 @@ public final class MainActivity extends AppCompatActivity {
     private void syncPlayerUi() {
         if (controller == null || controller.getMediaItemCount() == 0) {
             playerBar.setVisibility(View.GONE);
+            playerSeek.setProgress(0);
+            currentTime.setText("0:00");
+            totalTime.setText("0:00");
+            nowArtwork.setImageResource(R.drawable.ic_music_note);
             return;
         }
         playerBar.setVisibility(View.VISIBLE);
@@ -531,6 +653,46 @@ public final class MainActivity extends AppCompatActivity {
         nowPlaying.setText(metadata.title == null ? "재생 중" : metadata.title);
         nowArtist.setText(metadata.artist == null ? "" : metadata.artist);
         playPause.setText(controller.isPlaying() ? "Ⅱ" : "▶");
+
+        MediaItem item = controller.getCurrentMediaItem();
+        Track track = item == null ? null : library.find(item.mediaId);
+        if (track != null) ArtworkLoader.load(nowArtwork, this, track.id, track.thumbnailUrl);
+        else nowArtwork.setImageResource(R.drawable.ic_music_note);
+        updatePlayerProgress();
+    }
+
+    private long effectiveDurationMs() {
+        if (controller == null) return 0L;
+        long duration = controller.getDuration();
+        if (duration != C.TIME_UNSET && duration > 0) return duration;
+        MediaItem item = controller.getCurrentMediaItem();
+        if (item != null) {
+            Track track = library.find(item.mediaId);
+            if (track != null && track.durationSeconds > 0) return track.durationSeconds * 1000L;
+        }
+        return 0L;
+    }
+
+    private void updatePlayerProgress() {
+        if (controller == null || playerBar == null || playerBar.getVisibility() != View.VISIBLE) return;
+        long duration = effectiveDurationMs();
+        long position = Math.max(0L, controller.getCurrentPosition());
+        totalTime.setText(formatTime(duration));
+        if (!userSeeking) {
+            currentTime.setText(formatTime(position));
+            int progress = duration > 0 ? (int) Math.min(1000L, position * 1000L / duration) : 0;
+            playerSeek.setProgress(progress);
+        }
+    }
+
+    private static String formatTime(long ms) {
+        if (ms <= 0) return "0:00";
+        long totalSeconds = ms / 1000L;
+        long hours = totalSeconds / 3600L;
+        long minutes = (totalSeconds % 3600L) / 60L;
+        long seconds = totalSeconds % 60L;
+        if (hours > 0) return String.format(Locale.ROOT, "%d:%02d:%02d", hours, minutes, seconds);
+        return String.format(Locale.ROOT, "%d:%02d", minutes, seconds);
     }
 
     private void refreshAll() {
@@ -695,6 +857,8 @@ public final class MainActivity extends AppCompatActivity {
                     }
                     playlists.removeTrackEverywhere(track.id);
                     library.remove(track.id);
+                    File artwork = ArtworkLoader.localArtworkFile(this, track.id);
+                    if (artwork.exists()) artwork.delete();
                     refreshAll();
                     syncPlayerUi();
                 })
@@ -745,6 +909,7 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        mainHandler.removeCallbacks(positionTicker);
         if (controllerFuture != null) MediaController.releaseFuture(controllerFuture);
         controller = null;
         io.shutdownNow();
