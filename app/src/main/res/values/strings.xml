@@ -5,4 +5,5 @@
     <string name="search">검색</string>
     <string name="search_results">검색 결과</string>
     <string name="playlist">내 플레이리스트</string>
+    <string name="widget_description">현재 곡을 확인하고 이전, 재생·일시정지, 다음 곡을 제어합니다.</string>
 </resources>
