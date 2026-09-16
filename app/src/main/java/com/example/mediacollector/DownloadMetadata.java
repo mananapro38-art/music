@@ -1,9 +1,11 @@
 package com.example.mediacollector;
 
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.offline.DownloadRequest;
 
 import java.nio.charset.StandardCharsets;
 
+@UnstableApi
 public final class DownloadMetadata {
     private DownloadMetadata() {}
 
