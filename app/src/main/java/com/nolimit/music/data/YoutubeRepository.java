@@ -16,6 +16,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public final class YoutubeRepository {
@@ -94,29 +95,38 @@ public final class YoutubeRepository {
         if (!dir.exists() && !dir.mkdirs()) throw new IllegalStateException("저장 폴더를 만들 수 없습니다.");
 
         File existing = findDownloadedFile(dir, item.id);
-        if (existing != null) return existing;
+        if (existing != null) {
+            downloadSubtitlesBestEffort(item, dir);
+            return existing;
+        }
 
         Exception lastError = null;
 
         try {
-            return downloadAttempt(item, dir, listener, "default", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", false, "default");
+            File result = downloadAttempt(item, dir, listener, "default", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", false, "default");
+            downloadSubtitlesBestEffort(item, dir);
+            return result;
         } catch (Exception e) {
             lastError = e;
-            deleteAllForId(dir, item.id);
+            deleteAudioForId(dir, item.id);
         }
 
         try {
-            return downloadAttempt(item, dir, listener, "web_embedded", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", false, "embedded");
+            File result = downloadAttempt(item, dir, listener, "web_embedded", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", false, "embedded");
+            downloadSubtitlesBestEffort(item, dir);
+            return result;
         } catch (Exception e) {
             lastError = e;
-            deleteAllForId(dir, item.id);
+            deleteAudioForId(dir, item.id);
         }
 
         try {
-            return downloadAttempt(item, dir, listener, "android_vr", "18", true, "format18");
+            File result = downloadAttempt(item, dir, listener, "android_vr", "18", true, "format18");
+            downloadSubtitlesBestEffort(item, dir);
+            return result;
         } catch (Exception e) {
             lastError = e;
-            deleteAllForId(dir, item.id);
+            deleteAudioForId(dir, item.id);
         }
 
         if (lastError != null) throw lastError;
@@ -166,8 +176,63 @@ public final class YoutubeRepository {
         return result;
     }
 
+    private void downloadSubtitlesBestEffort(SearchResult item, File dir) {
+        if (hasSubtitle(dir, item.id)) return;
+
+        try {
+            YoutubeDLRequest manual = subtitleRequest(item, dir);
+            manual.addOption("--write-subs");
+            manual.addOption("--sub-langs", "all,-live_chat");
+            YoutubeDL.getInstance().execute(manual);
+        } catch (Exception ignored) {
+        }
+        if (hasSubtitle(dir, item.id)) return;
+
+        try {
+            YoutubeDLRequest automatic = subtitleRequest(item, dir);
+            automatic.addOption("--write-auto-subs");
+            automatic.addOption("--sub-langs", "ko.*,en.*,ja.*");
+            YoutubeDL.getInstance().execute(automatic);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static YoutubeDLRequest subtitleRequest(SearchResult item, File dir) {
+        YoutubeDLRequest request = new YoutubeDLRequest(item.url);
+        request.addOption("--skip-download");
+        request.addOption("--no-playlist");
+        request.addOption("--no-warnings");
+        request.addOption("--ignore-errors");
+        request.addOption("--remote-components", "ejs:github");
+        request.addOption("--sub-format", "vtt");
+        request.addOption("-o", new File(dir, item.id + ".%(ext)s").getAbsolutePath());
+        return request;
+    }
+
+    private static boolean hasSubtitle(File dir, String id) {
+        File[] files = dir.listFiles((d, name) -> {
+            String n = name.toLowerCase(Locale.ROOT);
+            return name.startsWith(id + ".") && (n.endsWith(".vtt") || n.endsWith(".srt"));
+        });
+        return files != null && files.length > 0;
+    }
+
     private static File findDownloadedFile(File dir, String id) {
-        File[] files = dir.listFiles((d, name) -> name.startsWith(id + ".") && !name.endsWith(".part") && !name.endsWith(".ytdl"));
+        File[] files = dir.listFiles((d, name) -> {
+            String n = name.toLowerCase(Locale.ROOT);
+            if (!name.startsWith(id + ".")) return false;
+            return !n.endsWith(".part")
+                    && !n.endsWith(".ytdl")
+                    && !n.endsWith(".vtt")
+                    && !n.endsWith(".srt")
+                    && !n.endsWith(".ass")
+                    && !n.endsWith(".lrc")
+                    && !n.endsWith(".json")
+                    && !n.endsWith(".jpg")
+                    && !n.endsWith(".jpeg")
+                    && !n.endsWith(".png")
+                    && !n.endsWith(".webp");
+        });
         if (files == null || files.length == 0) return null;
         File newest = files[0];
         for (File f : files) if (f.lastModified() > newest.lastModified()) newest = f;
@@ -179,8 +244,15 @@ public final class YoutubeRepository {
         if (files != null) for (File f : files) f.delete();
     }
 
-    private static void deleteAllForId(File dir, String id) {
-        File[] files = dir.listFiles((d, name) -> name.startsWith(id + "."));
+    private static void deleteAudioForId(File dir, String id) {
+        File[] files = dir.listFiles((d, name) -> {
+            String n = name.toLowerCase(Locale.ROOT);
+            return name.startsWith(id + ".")
+                    && !n.endsWith(".vtt")
+                    && !n.endsWith(".srt")
+                    && !n.endsWith(".ass")
+                    && !n.endsWith(".lrc");
+        });
         if (files != null) for (File f : files) f.delete();
     }
 
