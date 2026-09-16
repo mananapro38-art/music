@@ -22,6 +22,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Restore stable test signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: no-limit-music-debug-keystore-v1
+
       - name: Install Android SDK packages
         run: |
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
@@ -42,5 +48,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: no-limit-music-v0.1-debug
+          name: no-limit-music-v0.5-debug
           path: app/build/outputs/apk/debug/app-debug.apk
