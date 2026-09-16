@@ -1,0 +1,59 @@
+name: Build Media Collector v0.3 APK
+
+on:
+  push:
+    branches: [ media-collector-v0.3 ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Decode source bundle
+        run: |
+          base64 -d media-collector-v0.3.zip.b64 > media-collector-v0.3.zip
+          unzip -q media-collector-v0.3.zip
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Install Android 35 SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Lint and build debug APK
+        working-directory: media-collector-android
+        run: gradle --no-daemon lintDebug assembleDebug
+
+      - name: Prepare artifact
+        run: |
+          cp media-collector-android/app/build/outputs/apk/debug/app-debug.apk media-collector-v0.3-debug.apk
+          sha256sum media-collector-v0.3-debug.apk > media-collector-v0.3-debug.apk.sha256
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-collector-v0.3-debug-apk
+          path: |
+            media-collector-v0.3-debug.apk
+            media-collector-v0.3-debug.apk.sha256
+          if-no-files-found: error
