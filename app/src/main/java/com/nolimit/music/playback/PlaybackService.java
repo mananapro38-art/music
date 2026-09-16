@@ -1,13 +1,18 @@
 package com.nolimit.music.playback;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
 
 import com.nolimit.music.data.LibraryStore;
+import com.nolimit.music.widget.MusicWidgetProvider;
 
 public final class PlaybackService extends MediaSessionService {
     private ExoPlayer player;
@@ -26,9 +31,35 @@ public final class PlaybackService extends MediaSessionService {
                 if (mediaItem != null && mediaItem.mediaId != null && !mediaItem.mediaId.isEmpty()) {
                     library.incrementPlayCount(mediaItem.mediaId);
                 }
+                updateWidgetState();
+            }
+
+            @Override
+            public void onIsPlayingChanged(boolean isPlaying) {
+                updateWidgetState();
+            }
+
+            @Override
+            public void onPlaybackStateChanged(int playbackState) {
+                updateWidgetState();
             }
         });
         session = new MediaSession.Builder(this, player).build();
+        updateWidgetState();
+    }
+
+    private void updateWidgetState() {
+        if (player == null) return;
+        MediaMetadata metadata = player.getMediaMetadata();
+        String title = metadata.title == null ? "No Limit Music" : metadata.title.toString();
+        String artist = metadata.artist == null ? "재생할 곡을 선택하세요" : metadata.artist.toString();
+        SharedPreferences prefs = getSharedPreferences("widget_state", Context.MODE_PRIVATE);
+        prefs.edit()
+                .putString("title", title)
+                .putString("artist", artist)
+                .putBoolean("playing", player.isPlaying())
+                .apply();
+        MusicWidgetProvider.updateAll(this);
     }
 
     @Nullable
@@ -39,7 +70,6 @@ public final class PlaybackService extends MediaSessionService {
 
     @Override
     public void onTaskRemoved(@Nullable android.content.Intent rootIntent) {
-        // Keep playback alive when the app UI is dismissed. MediaSessionService owns the notification.
         super.onTaskRemoved(rootIntent);
     }
 
