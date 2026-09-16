@@ -28,7 +28,7 @@ public final class LibraryStore {
             JSONArray array = new JSONArray(prefs.getString(KEY_TRACKS, "[]"));
             for (int i = 0; i < array.length(); i++) {
                 JSONObject o = array.getJSONObject(i);
-                Track track = new Track(
+                result.add(new Track(
                         o.optString("id"),
                         o.optString("title"),
                         o.optString("artist"),
@@ -38,8 +38,7 @@ public final class LibraryStore {
                         o.optBoolean("liked", false),
                         o.optInt("playCount", 0),
                         o.optLong("lastPlayedAt", 0L)
-                );
-                if (new File(track.path).exists()) result.add(track);
+                ));
             }
         } catch (Exception ignored) { }
         return result;
@@ -115,7 +114,8 @@ public final class LibraryStore {
         Track target = null;
         for (Track track : tracks) if (track.id.equals(id)) target = track;
         if (target != null) {
-            new File(target.path).delete();
+            File file = new File(target.path);
+            if (file.exists()) file.delete();
             tracks.remove(target);
             save(tracks);
         }
