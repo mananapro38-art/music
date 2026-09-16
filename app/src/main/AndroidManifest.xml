@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application
+        android:name=".NoLimitMusicApp"
         android:allowBackup="true"
         android:extractNativeLibs="true"
         android:icon="@drawable/ic_app"
@@ -15,6 +16,11 @@
         android:roundIcon="@drawable/ic_app"
         android:supportsRtl="true"
         android:theme="@style/Theme.NoLimitMusic">
+
+        <activity
+            android:name=".PlayerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
         <activity
             android:name=".MainActivity"
