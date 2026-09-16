@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.os.Environment;
 
 import com.nolimit.music.model.SearchResult;
+import com.nolimit.music.util.ArtworkLoader;
 import com.yausername.ffmpeg.FFmpeg;
 import com.yausername.youtubedl_android.YoutubeDL;
 import com.yausername.youtubedl_android.YoutubeDLRequest;
@@ -48,7 +49,6 @@ public final class YoutubeRepository {
             YoutubeDL.getInstance().updateYoutubeDL(appContext, YoutubeDL.UpdateChannel._NIGHTLY);
             prefs.edit().putLong(KEY_LAST_UPDATE, now).apply();
         } catch (Exception ignored) {
-            // Keep the bundled engine if the device is offline or the updater is temporarily unavailable.
         }
     }
 
@@ -80,6 +80,7 @@ public final class YoutubeRepository {
                 if (webpage.isEmpty()) webpage = "https://www.youtube.com/watch?v=" + id;
                 long duration = Math.round(o.optDouble("duration", 0));
                 String thumbnail = o.optString("thumbnail");
+                if (thumbnail == null || thumbnail.trim().isEmpty()) thumbnail = ArtworkLoader.fallbackUrl(id);
                 results.add(new SearchResult(id, title, channel, webpage, duration, thumbnail, 0, ""));
             } catch (Exception ignored) { }
         }
@@ -97,8 +98,6 @@ public final class YoutubeRepository {
 
         Exception lastError = null;
 
-        // 1) Current yt-dlp defaults (currently visionOS/web family). This handles videos
-        // which explicitly disallow embedded playback.
         try {
             return downloadAttempt(item, dir, listener, "default", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", false, "default");
         } catch (Exception e) {
@@ -106,8 +105,6 @@ public final class YoutubeRepository {
             deleteAllForId(dir, item.id);
         }
 
-        // 2) Embedded web client avoids the android_vr GVS 403 on many public videos.
-        // Keep it as a completely separate extraction attempt to avoid cross-client URL mixing.
         try {
             return downloadAttempt(item, dir, listener, "web_embedded", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", false, "embedded");
         } catch (Exception e) {
@@ -115,8 +112,6 @@ public final class YoutubeRepository {
             deleteAllForId(dir, item.id);
         }
 
-        // 3) Last-resort path: android_vr format 18 is often still available without a GVS
-        // PO token. Download the progressive MP4 then let FFmpeg extract only its AAC audio.
         try {
             return downloadAttempt(item, dir, listener, "android_vr", "18", true, "format18");
         } catch (Exception e) {
