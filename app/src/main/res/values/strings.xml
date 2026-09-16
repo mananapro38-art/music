@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">No Limit Music</string>
+    <string name="search_hint">아티스트 또는 곡을 검색</string>
+    <string name="search">검색</string>
+    <string name="search_results">검색 결과</string>
+    <string name="playlist">내 플레이리스트</string>
+</resources>
