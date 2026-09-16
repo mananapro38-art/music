@@ -77,6 +77,15 @@ public final class YoutubeRepository {
         request.addOption("--no-mtime");
         request.addOption("--no-warnings");
         request.addOption("--remote-components", "ejs:github");
+
+        // YouTube began enforcing GVS PO-token checks on the android_vr client in 2026.
+        // For the public/embeddable music tracks targeted by this app, force web_embedded
+        // so yt-dlp does not select an android_vr googlevideo URL which returns HTTP 403.
+        request.addOption("--extractor-args", "youtube:player_client=web_embedded");
+        request.addOption("--retries", "5");
+        request.addOption("--fragment-retries", "5");
+        request.addOption("--socket-timeout", "20");
+
         request.addOption("-f", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio");
         request.addOption("-o", new File(dir, item.id + ".%(ext)s").getAbsolutePath());
 
