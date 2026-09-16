@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Media Collector</string>
+    <string name="download_channel_name">미디어 다운로드</string>
+    <string name="download_channel_description">오프라인 플레이리스트 저장 진행 상태</string>
+</resources>
