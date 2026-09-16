@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.example.mediacollector'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.example.mediacollector'
+        minSdk 26
+        targetSdk 35
+        versionCode 3
+        versionName '0.3-apk'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'androidx.media3:media3-exoplayer:1.6.1'
+    implementation 'androidx.media3:media3-exoplayer-hls:1.6.1'
+    implementation 'androidx.media3:media3-exoplayer-dash:1.6.1'
+    implementation 'androidx.media3:media3-ui:1.6.1'
+    implementation 'androidx.media3:media3-datasource:1.6.1'
+    implementation 'androidx.media3:media3-database:1.6.1'
+}
