@@ -3,6 +3,7 @@ package com.nolimit.music.ui;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -10,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.nolimit.music.R;
 import com.nolimit.music.model.Track;
+import com.nolimit.music.util.ArtworkLoader;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,6 +57,7 @@ public final class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.
         h.title.setText(track.title);
         h.artist.setText(track.artist + (track.playCount > 0 ? " · " + track.playCount + "회 재생" : ""));
         h.like.setText(track.liked ? "♥" : "♡");
+        ArtworkLoader.load(h.cover, h.itemView.getContext(), track.id, track.thumbnailUrl);
         h.itemView.setOnClickListener(v -> listener.onPlay(track));
         h.more.setOnClickListener(v -> listener.onMore(track));
         h.like.setOnClickListener(v -> listener.onLike(track, !track.liked));
@@ -63,9 +66,11 @@ public final class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.
     @Override public int getItemCount() { return items.size(); }
 
     static final class Holder extends RecyclerView.ViewHolder {
+        final ImageView cover;
         final TextView title, artist, more, like;
         Holder(View v) {
             super(v);
+            cover = v.findViewById(R.id.ivTrackArtwork);
             title = v.findViewById(R.id.tvTrackTitle);
             artist = v.findViewById(R.id.tvTrackArtist);
             more = v.findViewById(R.id.tvRemove);
