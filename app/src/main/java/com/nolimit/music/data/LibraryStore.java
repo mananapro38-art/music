@@ -37,7 +37,8 @@ public final class LibraryStore {
                         o.optLong("addedAt"),
                         o.optBoolean("liked", false),
                         o.optInt("playCount", 0),
-                        o.optLong("lastPlayedAt", 0L)
+                        o.optLong("lastPlayedAt", 0L),
+                        o.optString("thumbnail", "")
                 ));
             }
         } catch (Exception ignored) { }
@@ -55,9 +56,11 @@ public final class LibraryStore {
         for (Track t : tracks) if (t.id.equals(track.id)) previous = t;
         if (previous != null) {
             tracks.remove(previous);
+            String thumbnail = track.thumbnailUrl == null || track.thumbnailUrl.isEmpty()
+                    ? previous.thumbnailUrl : track.thumbnailUrl;
             track = new Track(track.id, track.title, track.artist, track.path, track.durationSeconds,
                     previous.addedAt > 0 ? previous.addedAt : track.addedAt,
-                    previous.liked, previous.playCount, previous.lastPlayedAt);
+                    previous.liked, previous.playCount, previous.lastPlayedAt, thumbnail);
         }
         tracks.add(0, track);
         save(tracks);
@@ -140,6 +143,7 @@ public final class LibraryStore {
                 o.put("liked", t.liked);
                 o.put("playCount", t.playCount);
                 o.put("lastPlayedAt", t.lastPlayedAt);
+                o.put("thumbnail", t.thumbnailUrl == null ? "" : t.thumbnailUrl);
                 array.put(o);
             } catch (Exception ignored) { }
         }
