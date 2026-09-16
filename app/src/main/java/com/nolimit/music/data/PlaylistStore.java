@@ -40,9 +40,7 @@ public final class PlaylistStore {
                 result.add(new Playlist(o.optString("id"), o.optString("name"), trackIds));
             }
         } catch (Exception ignored) { }
-        if (result.isEmpty()) {
-            result.add(new Playlist(DEFAULT_ID, "내 플레이리스트", new ArrayList<>()));
-        }
+        if (result.isEmpty()) result.add(new Playlist(DEFAULT_ID, "내 플레이리스트", new ArrayList<>()));
         return result;
     }
 
@@ -102,6 +100,17 @@ public final class PlaylistStore {
             save(list);
             return;
         }
+    }
+
+    public synchronized void removeTrackEverywhere(String trackId) {
+        List<Playlist> list = load();
+        for (int i = 0; i < list.size(); i++) {
+            Playlist p = list.get(i);
+            List<String> ids = new ArrayList<>(p.trackIds);
+            ids.removeIf(trackId::equals);
+            list.set(i, new Playlist(p.id, p.name, ids));
+        }
+        save(list);
     }
 
     public synchronized void move(String playlistId, int from, int to) {
