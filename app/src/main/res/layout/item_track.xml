@@ -3,26 +3,27 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="5dp"
+    android:background="@drawable/bg_card"
     android:gravity="center_vertical"
-    android:minHeight="58dp"
+    android:minHeight="64dp"
     android:orientation="horizontal"
-    android:paddingLeft="8dp"
-    android:paddingTop="7dp"
+    android:paddingLeft="12dp"
+    android:paddingTop="8dp"
     android:paddingRight="8dp"
-    android:paddingBottom="7dp">
+    android:paddingBottom="8dp">
 
     <TextView
-        android:layout_width="34dp"
-        android:layout_height="34dp"
+        android:layout_width="28dp"
+        android:layout_height="40dp"
         android:gravity="center"
-        android:text="▶"
-        android:textColor="@color/white"
-        android:textSize="13sp" />
+        android:text="⋮⋮"
+        android:textColor="@color/muted"
+        android:textSize="14sp" />
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
+        android:layout_marginStart="6dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -32,13 +33,15 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="@color/white"
-            android:textSize="14sp" />
+            android:textColor="@color/text_primary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvTrackArtist"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/muted"
@@ -46,11 +49,20 @@
     </LinearLayout>
 
     <TextView
+        android:id="@+id/tvLike"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:gravity="center"
+        android:text="♡"
+        android:textColor="@color/text_primary"
+        android:textSize="21sp" />
+
+    <TextView
         android:id="@+id/tvRemove"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:padding="8dp"
-        android:text="삭제"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:gravity="center"
+        android:text="×"
         android:textColor="@color/muted"
-        android:textSize="11sp" />
+        android:textSize="22sp" />
 </LinearLayout>
