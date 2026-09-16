@@ -3,6 +3,7 @@ package com.nolimit.music.ui;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
@@ -11,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.nolimit.music.R;
 import com.nolimit.music.model.SearchResult;
+import com.nolimit.music.util.ArtworkLoader;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,12 +57,14 @@ public final class SearchResultAdapter extends RecyclerView.Adapter<SearchResult
         h.title.setText(item.title);
         h.meta.setText(item.channel + " · " + formatDuration(item.durationSeconds));
         h.badge.setText(item.badge);
+        ArtworkLoader.load(h.cover, h.itemView.getContext(), item.id, item.thumbnail);
         boolean downloading = item.id.equals(activeId);
         h.progress.setVisibility(downloading ? View.VISIBLE : View.GONE);
         h.progress.setProgress(activeProgress);
         h.action.setVisibility(downloading ? View.GONE : View.VISIBLE);
         h.itemView.setOnClickListener(v -> {
-            if (activeId == null) listener.onDownload(item, h.getBindingAdapterPosition());
+            int p = h.getBindingAdapterPosition();
+            if (activeId == null && p != RecyclerView.NO_POSITION) listener.onDownload(item, p);
         });
     }
 
@@ -74,10 +78,12 @@ public final class SearchResultAdapter extends RecyclerView.Adapter<SearchResult
     }
 
     static final class Holder extends RecyclerView.ViewHolder {
+        final ImageView cover;
         final TextView title, meta, badge, action;
         final ProgressBar progress;
         Holder(View v) {
             super(v);
+            cover = v.findViewById(R.id.ivCover);
             title = v.findViewById(R.id.tvTitle);
             meta = v.findViewById(R.id.tvMeta);
             badge = v.findViewById(R.id.tvBadge);
