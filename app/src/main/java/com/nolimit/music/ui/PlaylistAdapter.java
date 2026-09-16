@@ -12,12 +12,15 @@ import com.nolimit.music.R;
 import com.nolimit.music.model.Track;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public final class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.Holder> {
     public interface Listener {
         void onPlay(Track track);
         void onRemove(Track track);
+        void onLike(Track track, boolean liked);
+        void onMove(int from, int to);
     }
 
     private final Listener listener;
@@ -31,6 +34,16 @@ public final class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.
         notifyDataSetChanged();
     }
 
+    public List<Track> snapshot() { return new ArrayList<>(items); }
+
+    public boolean moveItem(int from, int to) {
+        if (from < 0 || to < 0 || from >= items.size() || to >= items.size()) return false;
+        Collections.swap(items, from, to);
+        notifyItemMoved(from, to);
+        listener.onMove(from, to);
+        return true;
+    }
+
     @NonNull @Override
     public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         return new Holder(LayoutInflater.from(parent.getContext()).inflate(R.layout.item_track, parent, false));
@@ -40,20 +53,23 @@ public final class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.
     public void onBindViewHolder(@NonNull Holder h, int position) {
         Track track = items.get(position);
         h.title.setText(track.title);
-        h.artist.setText(track.artist);
+        h.artist.setText(track.artist + (track.playCount > 0 ? " · " + track.playCount + "회 재생" : ""));
+        h.like.setText(track.liked ? "♥" : "♡");
         h.itemView.setOnClickListener(v -> listener.onPlay(track));
         h.remove.setOnClickListener(v -> listener.onRemove(track));
+        h.like.setOnClickListener(v -> listener.onLike(track, !track.liked));
     }
 
     @Override public int getItemCount() { return items.size(); }
 
     static final class Holder extends RecyclerView.ViewHolder {
-        final TextView title, artist, remove;
+        final TextView title, artist, remove, like;
         Holder(View v) {
             super(v);
             title = v.findViewById(R.id.tvTrackTitle);
             artist = v.findViewById(R.id.tvTrackArtist);
             remove = v.findViewById(R.id.tvRemove);
+            like = v.findViewById(R.id.tvLike);
         }
     }
 }
