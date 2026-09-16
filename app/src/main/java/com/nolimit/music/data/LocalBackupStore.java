@@ -26,12 +26,13 @@ public final class LocalBackupStore {
         SharedPreferences settings = context.getSharedPreferences("settings", Context.MODE_PRIVATE);
 
         JSONObject root = new JSONObject();
-        root.put("backupVersion", 1);
+        root.put("backupVersion", 2);
         root.put("library", new JSONArray(library.getString("tracks", "[]")));
         root.put("playlists", new JSONArray(playlists.getString("items", "[]")));
         JSONObject settingsObject = new JSONObject();
         settingsObject.put("theme", settings.getString("theme", "dark"));
         settingsObject.put("autoplay", settings.getBoolean("autoplay", true));
+        settingsObject.put("allowMobileData", settings.getBoolean("allow_mobile_download", false));
         root.put("settings", settingsObject);
 
         try (OutputStream out = context.getContentResolver().openOutputStream(uri, "wt")) {
@@ -66,6 +67,7 @@ public final class LocalBackupStore {
             SharedPreferences.Editor editor = context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit();
             if (settingsObject.has("theme")) editor.putString("theme", settingsObject.optString("theme", "dark"));
             if (settingsObject.has("autoplay")) editor.putBoolean("autoplay", settingsObject.optBoolean("autoplay", true));
+            if (settingsObject.has("allowMobileData")) editor.putBoolean("allow_mobile_download", settingsObject.optBoolean("allowMobileData", false));
             editor.commit();
         }
     }
