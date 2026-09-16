@@ -34,15 +34,8 @@ public final class PlaybackService extends MediaSessionService {
                 updateWidgetState();
             }
 
-            @Override
-            public void onIsPlayingChanged(boolean isPlaying) {
-                updateWidgetState();
-            }
-
-            @Override
-            public void onPlaybackStateChanged(int playbackState) {
-                updateWidgetState();
-            }
+            @Override public void onIsPlayingChanged(boolean isPlaying) { updateWidgetState(); }
+            @Override public void onPlaybackStateChanged(int playbackState) { updateWidgetState(); }
         });
         session = new MediaSession.Builder(this, player).build();
         updateWidgetState();
@@ -53,10 +46,12 @@ public final class PlaybackService extends MediaSessionService {
         MediaMetadata metadata = player.getMediaMetadata();
         String title = metadata.title == null ? "No Limit Music" : metadata.title.toString();
         String artist = metadata.artist == null ? "재생할 곡을 선택하세요" : metadata.artist.toString();
+        String artwork = metadata.artworkUri == null ? "" : metadata.artworkUri.toString();
         SharedPreferences prefs = getSharedPreferences("widget_state", Context.MODE_PRIVATE);
         prefs.edit()
                 .putString("title", title)
                 .putString("artist", artist)
+                .putString("artwork", artwork)
                 .putBoolean("playing", player.isPlaying())
                 .apply();
         MusicWidgetProvider.updateAll(this);
