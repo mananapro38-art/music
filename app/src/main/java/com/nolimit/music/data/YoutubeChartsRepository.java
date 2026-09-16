@@ -1,6 +1,7 @@
 package com.nolimit.music.data;
 
 import com.nolimit.music.model.SearchResult;
+import com.nolimit.music.util.ArtworkLoader;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -25,9 +26,6 @@ public final class YoutubeChartsRepository {
 
     public List<SearchResult> loadKoreaTopSongs(int limit) throws Exception {
         String key = FALLBACK_KEY;
-
-        // The public chart page occasionally rejects non-browser GETs. That should not
-        // prevent the chart itself from loading, so API-key discovery is best-effort.
         try {
             String page = get(CHART_PAGE);
             Matcher matcher = API_KEY.matcher(page);
@@ -53,8 +51,9 @@ public final class YoutubeChartsRepository {
 
         String raw = postCharts("https://charts.youtube.com/youtubei/v1/browse?alt=json&key=" + key, body.toString());
         JSONObject root = new JSONObject(raw);
-        JSONArray rows = findArrayByKey(root, "trackViews");
-        if (rows == null) throw new IllegalStateException("차트 응답에서 trackViews를 찾지 못했습니다.");
+        JSONArray rows = extractPrimaryTrackViews(root);
+        if (rows == null || rows.length() == 0) rows = findLargestArrayByKey(root, "trackViews");
+        if (rows == null || rows.length() == 0) throw new IllegalStateException("차트 응답에서 trackViews를 찾지 못했습니다.");
 
         List<SearchResult> result = new ArrayList<>();
         int rank = 0;
@@ -70,6 +69,7 @@ public final class YoutubeChartsRepository {
             if (title.isEmpty()) title = row.optString("name", "제목 없음");
             String artist = artists(row.optJSONArray("artists"));
             String thumbnail = extractThumbnail(row);
+            if (thumbnail.isEmpty()) thumbnail = ArtworkLoader.fallbackUrl(id);
 
             rank++;
             result.add(new SearchResult(
@@ -88,26 +88,51 @@ public final class YoutubeChartsRepository {
         return result;
     }
 
-    private static JSONArray findArrayByKey(Object node, String key) {
+    private static JSONArray extractPrimaryTrackViews(JSONObject root) {
+        try {
+            JSONObject sectionList = root.getJSONObject("contents").getJSONObject("sectionListRenderer");
+            JSONArray sections = sectionList.getJSONArray("contents");
+            JSONArray best = null;
+            for (int i = 0; i < sections.length(); i++) {
+                JSONObject analytics = sections.optJSONObject(i);
+                if (analytics == null) continue;
+                analytics = analytics.optJSONObject("musicAnalyticsSectionRenderer");
+                if (analytics == null) continue;
+                JSONArray trackTypes = analytics.optJSONArray("trackTypes");
+                if (trackTypes == null) continue;
+                for (int j = 0; j < trackTypes.length(); j++) {
+                    JSONObject type = trackTypes.optJSONObject(j);
+                    JSONArray views = type == null ? null : type.optJSONArray("trackViews");
+                    if (views != null && (best == null || views.length() > best.length())) best = views;
+                }
+            }
+            return best;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static JSONArray findLargestArrayByKey(Object node, String key) {
+        JSONArray best = null;
         if (node instanceof JSONObject) {
             JSONObject object = (JSONObject) node;
             JSONArray direct = object.optJSONArray(key);
-            if (direct != null) return direct;
+            if (direct != null) best = direct;
             JSONArray names = object.names();
-            if (names == null) return null;
+            if (names == null) return best;
             for (int i = 0; i < names.length(); i++) {
                 Object child = object.opt(names.optString(i));
-                JSONArray found = findArrayByKey(child, key);
-                if (found != null) return found;
+                JSONArray found = findLargestArrayByKey(child, key);
+                if (found != null && (best == null || found.length() > best.length())) best = found;
             }
         } else if (node instanceof JSONArray) {
             JSONArray array = (JSONArray) node;
             for (int i = 0; i < array.length(); i++) {
-                JSONArray found = findArrayByKey(array.opt(i), key);
-                if (found != null) return found;
+                JSONArray found = findLargestArrayByKey(array.opt(i), key);
+                if (found != null && (best == null || found.length() > best.length())) best = found;
             }
         }
-        return null;
+        return best;
     }
 
     private static String extractThumbnail(JSONObject row) {
