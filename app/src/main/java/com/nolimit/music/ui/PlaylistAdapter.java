@@ -18,7 +18,7 @@ import java.util.List;
 public final class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.Holder> {
     public interface Listener {
         void onPlay(Track track);
-        void onRemove(Track track);
+        void onMore(Track track);
         void onLike(Track track, boolean liked);
         void onMove(int from, int to);
     }
@@ -56,19 +56,19 @@ public final class PlaylistAdapter extends RecyclerView.Adapter<PlaylistAdapter.
         h.artist.setText(track.artist + (track.playCount > 0 ? " · " + track.playCount + "회 재생" : ""));
         h.like.setText(track.liked ? "♥" : "♡");
         h.itemView.setOnClickListener(v -> listener.onPlay(track));
-        h.remove.setOnClickListener(v -> listener.onRemove(track));
+        h.more.setOnClickListener(v -> listener.onMore(track));
         h.like.setOnClickListener(v -> listener.onLike(track, !track.liked));
     }
 
     @Override public int getItemCount() { return items.size(); }
 
     static final class Holder extends RecyclerView.ViewHolder {
-        final TextView title, artist, remove, like;
+        final TextView title, artist, more, like;
         Holder(View v) {
             super(v);
             title = v.findViewById(R.id.tvTrackTitle);
             artist = v.findViewById(R.id.tvTrackArtist);
-            remove = v.findViewById(R.id.tvRemove);
+            more = v.findViewById(R.id.tvRemove);
             like = v.findViewById(R.id.tvLike);
         }
     }
