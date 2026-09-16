@@ -12,12 +12,15 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -39,6 +42,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.nolimit.music.data.DjPlanner;
 import com.nolimit.music.data.LibraryStore;
 import com.nolimit.music.data.LocalBackupStore;
 import com.nolimit.music.data.PlaylistStore;
@@ -67,6 +71,22 @@ public final class MainActivity extends AppCompatActivity {
     private static final String SMART_MOST = "smart_most";
     private static final String KEY_ALLOW_MOBILE_DOWNLOAD = "allow_mobile_download";
 
+    private static final String[] CHART_CATEGORY_LABELS = {
+            "주간 인기곡", "주간 인기 아티스트", "주간 인기 뮤직비디오", "급상승 음악"
+    };
+    private static final YoutubeChartsRepository.Category[] CHART_CATEGORIES = {
+            YoutubeChartsRepository.Category.TOP_SONGS,
+            YoutubeChartsRepository.Category.TOP_ARTISTS,
+            YoutubeChartsRepository.Category.TOP_VIDEOS,
+            YoutubeChartsRepository.Category.TRENDING
+    };
+    private static final String[] CHART_COUNTRY_LABELS = {
+            "대한민국", "글로벌", "미국", "일본", "영국", "캐나다", "호주", "독일", "프랑스", "대만", "싱가포르"
+    };
+    private static final String[] CHART_COUNTRY_CODES = {
+            "kr", "", "us", "jp", "gb", "ca", "au", "de", "fr", "tw", "sg"
+    };
+
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Runnable positionTicker = new Runnable() {
@@ -85,6 +105,8 @@ public final class MainActivity extends AppCompatActivity {
 
     private SearchResultAdapter resultsAdapter;
     private SearchResultAdapter chartsAdapter;
+    private SearchResultAdapter chartBrowserAdapter;
+    private SearchResultAdapter djAdapter;
     private PlaylistAdapter playlistAdapter;
 
     private ListenableFuture<MediaController> controllerFuture;
@@ -108,9 +130,15 @@ public final class MainActivity extends AppCompatActivity {
     private TextView currentTime;
     private TextView totalTime;
     private TextView chartStatus;
+    private TextView chartBrowserStatus;
+    private TextView djStatus;
     private TextView recentCount;
     private TextView likedCount;
     private TextView mostPlayedCount;
+    private EditText djPrompt;
+    private Button djGenerate;
+    private Spinner chartCategorySpinner;
+    private Spinner chartCountrySpinner;
     private MaterialSwitch autoplaySwitch;
     private MaterialSwitch mobileDownloadSwitch;
 
@@ -118,6 +146,8 @@ public final class MainActivity extends AppCompatActivity {
     private View sectionSearch;
     private View sectionPlaylist;
     private View sectionSettings;
+    private View sectionCharts;
+    private View sectionDj;
     private TextView iconHome;
     private TextView iconSearch;
     private TextView iconPlaylist;
@@ -127,6 +157,8 @@ public final class MainActivity extends AppCompatActivity {
     private String activeSmart = null;
     private volatile boolean engineReady = false;
     private volatile boolean downloadRunning = false;
+    private volatile boolean chartLoading = false;
+    private volatile boolean djLoading = false;
     private boolean userSeeking = false;
     private boolean suppressSettingCallbacks = false;
 
@@ -149,9 +181,10 @@ public final class MainActivity extends AppCompatActivity {
         setupLists();
         setupPlaybackController();
         setupActions();
+        setupChartControls();
         switchTab("home");
         refreshAll();
-        loadCharts();
+        loadHomeCharts();
         showFirstRunNotice();
         initializeEngine();
         mainHandler.post(positionTicker);
@@ -211,9 +244,15 @@ public final class MainActivity extends AppCompatActivity {
         currentTime = findViewById(R.id.tvCurrentTime);
         totalTime = findViewById(R.id.tvDuration);
         chartStatus = findViewById(R.id.tvChartStatus);
+        chartBrowserStatus = findViewById(R.id.tvChartBrowserStatus);
+        djStatus = findViewById(R.id.tvDjStatus);
         recentCount = findViewById(R.id.tvRecentCount);
         likedCount = findViewById(R.id.tvLikedCount);
         mostPlayedCount = findViewById(R.id.tvMostPlayedCount);
+        djPrompt = findViewById(R.id.etDjPrompt);
+        djGenerate = findViewById(R.id.btnDjGenerate);
+        chartCategorySpinner = findViewById(R.id.spinnerChartCategory);
+        chartCountrySpinner = findViewById(R.id.spinnerChartCountry);
         autoplaySwitch = findViewById(R.id.switchAutoplay);
         mobileDownloadSwitch = findViewById(R.id.switchMobileDownload);
 
@@ -221,6 +260,8 @@ public final class MainActivity extends AppCompatActivity {
         sectionSearch = findViewById(R.id.sectionSearch);
         sectionPlaylist = findViewById(R.id.sectionPlaylist);
         sectionSettings = findViewById(R.id.sectionSettings);
+        sectionCharts = findViewById(R.id.sectionCharts);
+        sectionDj = findViewById(R.id.sectionDj);
         iconHome = findViewById(R.id.iconHome);
         iconSearch = findViewById(R.id.iconSearch);
         iconPlaylist = findViewById(R.id.iconPlaylist);
@@ -229,16 +270,23 @@ public final class MainActivity extends AppCompatActivity {
 
     private void setupLists() {
         RecyclerView results = findViewById(R.id.rvResults);
-        RecyclerView chartList = findViewById(R.id.rvCharts);
+        RecyclerView chartPreview = findViewById(R.id.rvCharts);
+        RecyclerView chartBrowser = findViewById(R.id.rvChartBrowser);
+        RecyclerView djResults = findViewById(R.id.rvDjResults);
         RecyclerView playlist = findViewById(R.id.rvPlaylist);
+
         results.setLayoutManager(new LinearLayoutManager(this));
-        chartList.setLayoutManager(new LinearLayoutManager(this));
-        chartList.setNestedScrollingEnabled(false);
-        chartList.setHasFixedSize(false);
+        chartPreview.setLayoutManager(new LinearLayoutManager(this));
+        chartPreview.setNestedScrollingEnabled(false);
+        chartPreview.setHasFixedSize(false);
+        chartBrowser.setLayoutManager(new LinearLayoutManager(this));
+        djResults.setLayoutManager(new LinearLayoutManager(this));
         playlist.setLayoutManager(new LinearLayoutManager(this));
 
         resultsAdapter = new SearchResultAdapter(this::download);
-        chartsAdapter = new SearchResultAdapter(this::download);
+        chartsAdapter = new SearchResultAdapter(this::onChartItem);
+        chartBrowserAdapter = new SearchResultAdapter(this::onChartItem);
+        djAdapter = new SearchResultAdapter(this::download);
         playlistAdapter = new PlaylistAdapter(new PlaylistAdapter.Listener() {
             @Override public void onPlay(Track track) { playFromActiveList(track); }
             @Override public void onMore(Track track) { showTrackOptions(track); }
@@ -250,8 +298,11 @@ public final class MainActivity extends AppCompatActivity {
                 if (activeSmart == null) playlists.move(activePlaylistId, from, to);
             }
         });
+
         results.setAdapter(resultsAdapter);
-        chartList.setAdapter(chartsAdapter);
+        chartPreview.setAdapter(chartsAdapter);
+        chartBrowser.setAdapter(chartBrowserAdapter);
+        djResults.setAdapter(djAdapter);
         playlist.setAdapter(playlistAdapter);
 
         ItemTouchHelper helper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
@@ -340,6 +391,19 @@ public final class MainActivity extends AppCompatActivity {
         findViewById(R.id.cardRecent).setOnClickListener(v -> openSmartPlaylist(SMART_RECENT));
         findViewById(R.id.cardLiked).setOnClickListener(v -> openSmartPlaylist(SMART_LIKED));
         findViewById(R.id.cardMostPlayed).setOnClickListener(v -> openSmartPlaylist(SMART_MOST));
+        findViewById(R.id.cardCharts).setOnClickListener(v -> openCharts());
+        findViewById(R.id.cardDj).setOnClickListener(v -> openDj());
+        findViewById(R.id.btnChartsBack).setOnClickListener(v -> switchTab("home"));
+        findViewById(R.id.btnDjBack).setOnClickListener(v -> switchTab("home"));
+        djGenerate.setOnClickListener(v -> runDj());
+        djPrompt.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE) {
+                runDj();
+                return true;
+            }
+            return false;
+        });
+
         findViewById(R.id.btnCreatePlaylist).setOnClickListener(v -> showCreatePlaylistDialog());
         findViewById(R.id.btnPlayAll).setOnClickListener(v -> playQueue(getActiveTracks(), null));
         findViewById(R.id.btnExportBackup).setOnClickListener(v -> exportBackup());
@@ -359,6 +423,25 @@ public final class MainActivity extends AppCompatActivity {
         });
         findViewById(R.id.btnLightTheme).setOnClickListener(v -> setThemePreference("light"));
         findViewById(R.id.btnDarkTheme).setOnClickListener(v -> setThemePreference("dark"));
+    }
+
+    private void setupChartControls() {
+        ArrayAdapter<String> categoryAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, CHART_CATEGORY_LABELS);
+        categoryAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        chartCategorySpinner.setAdapter(categoryAdapter);
+
+        ArrayAdapter<String> countryAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, CHART_COUNTRY_LABELS);
+        countryAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        chartCountrySpinner.setAdapter(countryAdapter);
+
+        AdapterView.OnItemSelectedListener listener = new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (sectionCharts.getVisibility() == View.VISIBLE) loadChartBrowser();
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) { }
+        };
+        chartCategorySpinner.setOnItemSelectedListener(listener);
+        chartCountrySpinner.setOnItemSelectedListener(listener);
     }
 
     private void syncSettingsUi() {
@@ -405,7 +488,17 @@ public final class MainActivity extends AppCompatActivity {
         backupOpenLauncher.launch(intent);
     }
 
+    private void hideAllSections() {
+        sectionHome.setVisibility(View.GONE);
+        sectionSearch.setVisibility(View.GONE);
+        sectionPlaylist.setVisibility(View.GONE);
+        sectionSettings.setVisibility(View.GONE);
+        sectionCharts.setVisibility(View.GONE);
+        sectionDj.setVisibility(View.GONE);
+    }
+
     private void switchTab(String tab) {
+        hideAllSections();
         sectionHome.setVisibility("home".equals(tab) ? View.VISIBLE : View.GONE);
         sectionSearch.setVisibility("search".equals(tab) ? View.VISIBLE : View.GONE);
         sectionPlaylist.setVisibility("playlist".equals(tab) ? View.VISIBLE : View.GONE);
@@ -419,6 +512,25 @@ public final class MainActivity extends AppCompatActivity {
             renderPlaylistFolders();
             renderActivePlaylist();
         }
+    }
+
+    private void openCharts() {
+        hideAllSections();
+        sectionCharts.setVisibility(View.VISIBLE);
+        setNavActive(iconHome, true);
+        setNavActive(iconSearch, false);
+        setNavActive(iconPlaylist, false);
+        setNavActive(iconSettings, false);
+        loadChartBrowser();
+    }
+
+    private void openDj() {
+        hideAllSections();
+        sectionDj.setVisibility(View.VISIBLE);
+        setNavActive(iconHome, true);
+        setNavActive(iconSearch, false);
+        setNavActive(iconPlaylist, false);
+        setNavActive(iconSettings, false);
     }
 
     private void setNavActive(TextView icon, boolean active) {
@@ -446,19 +558,117 @@ public final class MainActivity extends AppCompatActivity {
                 : "음악 엔진 준비됨 · Wi‑Fi에서만 저장 · 백그라운드 재생");
     }
 
-    private void loadCharts() {
+    private void loadHomeCharts() {
         chartStatus.setText("불러오는 중");
         io.execute(() -> {
             try {
-                List<SearchResult> list = charts.loadKoreaTopSongs(50);
+                List<SearchResult> list = charts.loadChart(YoutubeChartsRepository.Category.TOP_SONGS, "kr", 6);
                 runOnUiThread(() -> {
                     chartsAdapter.submit(list);
-                    chartStatus.setText(list.isEmpty() ? "표시할 차트 없음" : "주간 Top " + list.size());
+                    chartStatus.setText(list.isEmpty() ? "표시할 차트 없음" : "Top " + list.size() + " 미리보기");
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     chartsAdapter.submit(Collections.emptyList());
                     chartStatus.setText("차트 오류 · " + compactError(e));
+                });
+            }
+        });
+    }
+
+    private void loadChartBrowser() {
+        if (chartLoading) return;
+        int categoryIndex = Math.max(0, chartCategorySpinner.getSelectedItemPosition());
+        int countryIndex = Math.max(0, chartCountrySpinner.getSelectedItemPosition());
+        if (categoryIndex >= CHART_CATEGORIES.length) categoryIndex = 0;
+        if (countryIndex >= CHART_COUNTRY_CODES.length) countryIndex = 0;
+
+        YoutubeChartsRepository.Category category = CHART_CATEGORIES[categoryIndex];
+        String country = CHART_COUNTRY_CODES[countryIndex];
+        String label = CHART_COUNTRY_LABELS[countryIndex] + " · " + CHART_CATEGORY_LABELS[categoryIndex];
+        int limit = category == YoutubeChartsRepository.Category.TOP_ARTISTS ? 100 : 50;
+
+        chartLoading = true;
+        chartBrowserStatus.setText(label + " 불러오는 중…");
+        io.execute(() -> {
+            try {
+                List<SearchResult> list = charts.loadChart(category, country, limit);
+                runOnUiThread(() -> {
+                    chartLoading = false;
+                    chartBrowserAdapter.submit(list);
+                    chartBrowserStatus.setText(label + " · " + list.size() + "개");
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    chartLoading = false;
+                    chartBrowserAdapter.submit(Collections.emptyList());
+                    chartBrowserStatus.setText("차트 오류 · " + compactError(e));
+                });
+            }
+        });
+    }
+
+    private void onChartItem(SearchResult item, int position) {
+        if (item.id.startsWith("artist:")) {
+            openSearchFor(item.title);
+            return;
+        }
+        download(item, position);
+    }
+
+    private void openSearchFor(String query) {
+        switchTab("search");
+        searchInput.setText(query);
+        searchInput.setSelection(searchInput.getText().length());
+        runSearch();
+    }
+
+    private void runDj() {
+        String prompt = djPrompt.getText().toString().trim();
+        if (TextUtils.isEmpty(prompt)) {
+            djPrompt.setError("예: 새벽에 들을 잔잔한 한국 노래");
+            return;
+        }
+        if (!engineReady) {
+            toast("음악 엔진을 준비하는 중입니다.");
+            return;
+        }
+        if (djLoading) return;
+
+        djLoading = true;
+        djGenerate.setEnabled(false);
+        djStatus.setText("DJ가 취향과 요청을 분석하는 중…");
+        djAdapter.submit(Collections.emptyList());
+
+        io.execute(() -> {
+            try {
+                List<Track> local = library.load();
+                List<String> queries = DjPlanner.buildQueries(prompt, local);
+                List<List<SearchResult>> batches = new ArrayList<>();
+                for (int i = 0; i < queries.size(); i++) {
+                    String query = queries.get(i);
+                    int step = i + 1;
+                    runOnUiThread(() -> djStatus.setText("DJ 검색 " + step + "/" + queries.size() + " · " + query));
+                    try {
+                        batches.add(youtube.search(query));
+                    } catch (Exception ignored) {
+                        batches.add(Collections.emptyList());
+                    }
+                }
+                List<SearchResult> merged = DjPlanner.merge(batches, local, 30);
+                runOnUiThread(() -> {
+                    djLoading = false;
+                    djGenerate.setEnabled(true);
+                    djAdapter.submit(merged);
+                    djStatus.setText(merged.isEmpty()
+                            ? "추천 후보를 찾지 못했습니다. 표현을 조금 바꿔보세요."
+                            : "AI DJ 베타 · " + merged.size() + "곡 후보 · 좋아요/재생기록 반영");
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    djLoading = false;
+                    djGenerate.setEnabled(true);
+                    djStatus.setText("DJ 실패 · " + compactError(e));
                 });
             }
         });
@@ -498,6 +708,10 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void download(SearchResult item, int position) {
+        if (item.id.startsWith("artist:")) {
+            openSearchFor(item.title);
+            return;
+        }
         Track existing = library.find(item.id);
         if (existing != null && new File(existing.path).exists()) {
             playlists.addTrack(PlaylistStore.DEFAULT_ID, existing.id);
@@ -523,16 +737,14 @@ public final class MainActivity extends AppCompatActivity {
         }
 
         downloadRunning = true;
-        resultsAdapter.setProgress(item.id, 0);
-        chartsAdapter.setProgress(item.id, 0);
+        setAllDownloadProgress(item.id, 0);
         engineStatus.setText("저장 시작 · " + item.title);
 
         io.execute(() -> {
             try {
                 File file = youtube.downloadAudio(item, (percent, line) -> runOnUiThread(() -> {
                     int p = Math.max(0, Math.min(100, Math.round(percent)));
-                    resultsAdapter.setProgress(item.id, p);
-                    chartsAdapter.setProgress(item.id, p);
+                    setAllDownloadProgress(item.id, p);
                     engineStatus.setText("저장 중 " + p + "%");
                 }));
 
@@ -556,8 +768,7 @@ public final class MainActivity extends AppCompatActivity {
                 Track finalTrack = track;
                 runOnUiThread(() -> {
                     downloadRunning = false;
-                    resultsAdapter.clearProgress();
-                    chartsAdapter.clearProgress();
+                    clearAllDownloadProgress();
                     refreshAll();
                     engineStatus.setText("저장 완료 · 내 플레이리스트에 추가됨");
                     playDownloaded(finalTrack);
@@ -565,12 +776,25 @@ public final class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     downloadRunning = false;
-                    resultsAdapter.clearProgress();
-                    chartsAdapter.clearProgress();
+                    clearAllDownloadProgress();
                     engineStatus.setText("저장 실패 · " + compactError(e));
                 });
             }
         });
+    }
+
+    private void setAllDownloadProgress(String id, int progress) {
+        resultsAdapter.setProgress(id, progress);
+        chartsAdapter.setProgress(id, progress);
+        chartBrowserAdapter.setProgress(id, progress);
+        djAdapter.setProgress(id, progress);
+    }
+
+    private void clearAllDownloadProgress() {
+        resultsAdapter.clearProgress();
+        chartsAdapter.clearProgress();
+        chartBrowserAdapter.clearProgress();
+        djAdapter.clearProgress();
     }
 
     private void playDownloaded(Track track) {
