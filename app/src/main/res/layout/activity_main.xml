@@ -1,239 +1,271 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/app_bg">
 
-    <LinearLayout
+    <eightbitlab.com.blurview.BlurTarget
+        android:id="@+id/blurTarget"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:paddingLeft="18dp"
-        android:paddingTop="18dp"
-        android:paddingRight="18dp"
-        android:paddingBottom="160dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="No Limit Music"
-            android:textColor="@color/text_primary"
-            android:textSize="27sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tvEngineStatus"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="음악 엔진 준비 중…"
-            android:textColor="@color/muted"
-            android:textSize="12sp" />
+        android:layout_height="match_parent">
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginTop="12dp"
-            android:layout_weight="1">
+            android:layout_height="match_parent">
 
-            <androidx.core.widget.NestedScrollView
-                android:id="@+id/sectionHome"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:clipToPadding="false"
-                android:fillViewport="false">
+                android:orientation="vertical"
+                android:paddingLeft="20dp"
+                android:paddingTop="18dp"
+                android:paddingRight="20dp"
+                android:paddingBottom="164dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingBottom="28dp">
-
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="내 음악" android:textColor="@color/text_primary" android:textSize="22sp" android:textStyle="bold" />
-
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="132dp" android:layout_marginTop="12dp" android:orientation="horizontal">
-                        <LinearLayout android:id="@+id/cardRecent" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginEnd="6dp" android:layout_weight="1" android:background="@drawable/bg_smart_card" android:gravity="bottom" android:orientation="vertical" android:padding="13dp">
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="＋" android:textColor="@color/text_primary" android:textSize="26sp" />
-                            <Space android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="최근 추가한 곡" android:textColor="@color/text_primary" android:textSize="13sp" android:textStyle="bold" />
-                            <TextView android:id="@+id/tvRecentCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0곡" android:textColor="@color/muted" android:textSize="11sp" />
-                        </LinearLayout>
-                        <LinearLayout android:id="@+id/cardLiked" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginHorizontal="3dp" android:layout_weight="1" android:background="@drawable/bg_smart_card" android:gravity="bottom" android:orientation="vertical" android:padding="13dp">
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="♥" android:textColor="@color/text_primary" android:textSize="24sp" />
-                            <Space android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="좋아요한 곡" android:textColor="@color/text_primary" android:textSize="13sp" android:textStyle="bold" />
-                            <TextView android:id="@+id/tvLikedCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0곡" android:textColor="@color/muted" android:textSize="11sp" />
-                        </LinearLayout>
-                        <LinearLayout android:id="@+id/cardMostPlayed" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="6dp" android:layout_weight="1" android:background="@drawable/bg_smart_card" android:gravity="bottom" android:orientation="vertical" android:padding="13dp">
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="↻" android:textColor="@color/text_primary" android:textSize="26sp" />
-                            <Space android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="많이 재생한 곡" android:textColor="@color/text_primary" android:textSize="13sp" android:textStyle="bold" />
-                            <TextView android:id="@+id/tvMostPlayedCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0곡" android:textColor="@color/muted" android:textSize="11sp" />
-                        </LinearLayout>
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="No Limit Music"
+                            android:textColor="@color/text_primary"
+                            android:textSize="30sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="내 음악, 내 방식대로"
+                            android:textColor="@color/muted"
+                            android:textSize="12sp" />
                     </LinearLayout>
-
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:text="발견" android:textColor="@color/text_primary" android:textSize="18sp" android:textStyle="bold" />
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="96dp" android:layout_marginTop="10dp" android:orientation="horizontal">
-                        <LinearLayout android:id="@+id/cardCharts" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginEnd="5dp" android:layout_weight="1" android:background="@drawable/bg_smart_card" android:gravity="center_vertical" android:orientation="vertical" android:padding="14dp">
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="▥  차트 허브" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
-                            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="국가·인기곡·아티스트·MV·급상승" android:textColor="@color/muted" android:textSize="11sp" />
-                        </LinearLayout>
-                        <LinearLayout android:id="@+id/cardDj" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="5dp" android:layout_weight="1" android:background="@drawable/bg_smart_card" android:gravity="center_vertical" android:orientation="vertical" android:padding="14dp">
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✦  AI DJ 베타" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
-                            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="자연어 요청 + 내 취향으로 곡 찾기" android:textColor="@color/muted" android:textSize="11sp" />
-                        </LinearLayout>
-                    </LinearLayout>
-
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:gravity="center_vertical" android:orientation="horizontal">
-                        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="대한민국 YouTube 차트" android:textColor="@color/text_primary" android:textSize="18sp" android:textStyle="bold" />
-                        <TextView android:id="@+id/tvChartStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="불러오는 중" android:textColor="@color/muted" android:textSize="11sp" />
-                    </LinearLayout>
-                    <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvCharts" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:nestedScrollingEnabled="false" android:overScrollMode="never" />
+                    <TextView
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_nav_active"
+                        android:gravity="center"
+                        android:text="♪"
+                        android:textColor="@color/accent"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
-            </androidx.core.widget.NestedScrollView>
 
-            <LinearLayout
-                android:id="@+id/sectionSearch"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="검색" android:textColor="@color/text_primary" android:textSize="22sp" android:textStyle="bold" />
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:gravity="center_vertical" android:orientation="horizontal">
-                    <EditText android:id="@+id/etSearch" android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1" android:background="@drawable/bg_search" android:hint="@string/search_hint" android:imeOptions="actionSearch" android:inputType="text" android:maxLines="1" android:paddingHorizontal="14dp" android:textColor="@color/text_primary" android:textColorHint="@color/muted" android:textSize="16sp" />
-                    <Button android:id="@+id/btnSearch" android:layout_width="wrap_content" android:layout_height="52dp" android:layout_marginStart="8dp" android:text="@string/search" />
-                </LinearLayout>
-                <com.nolimit.music.ui.SearchDiscoveryView android:layout_width="match_parent" android:layout_height="wrap_content" />
-                <ProgressBar android:id="@+id/progressSearch" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="3dp" android:layout_marginTop="4dp" android:indeterminate="true" android:visibility="gone" />
-                <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvResults" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="6dp" android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/tvEngineStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_smart_card"
+                    android:paddingLeft="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingRight="12dp"
+                    android:paddingBottom="6dp"
+                    android:text="음악 엔진 준비 중…"
+                    android:textColor="@color/muted"
+                    android:textSize="11sp" />
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_weight="1">
+
+                    <androidx.core.widget.NestedScrollView
+                        android:id="@+id/sectionHome"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:clipToPadding="false"
+                        android:fillViewport="false">
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:paddingBottom="36dp">
+
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="내 음악" android:textColor="@color/text_primary" android:textSize="22sp" android:textStyle="bold" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="자주 쓰는 라이브러리를 빠르게 열어요" android:textColor="@color/muted" android:textSize="11sp" />
+
+                            <LinearLayout android:layout_width="match_parent" android:layout_height="138dp" android:layout_marginTop="12dp" android:orientation="horizontal">
+                                <LinearLayout android:id="@+id/cardRecent" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginEnd="5dp" android:layout_weight="1" android:background="@drawable/bg_smart_card" android:gravity="bottom" android:orientation="vertical" android:padding="14dp">
+                                    <TextView android:layout_width="40dp" android:layout_height="40dp" android:background="@drawable/bg_nav_active" android:gravity="center" android:text="＋" android:textColor="@color/accent" android:textSize="23sp" />
+                                    <Space android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
+                                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="최근 추가" android:textColor="@color/text_primary" android:textSize="14sp" android:textStyle="bold" />
+                                    <TextView android:id="@+id/tvRecentCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="0곡" android:textColor="@color/muted" android:textSize="11sp" />
+                                </LinearLayout>
+                                <LinearLayout android:id="@+id/cardLiked" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginHorizontal="5dp" android:layout_weight="1" android:background="@drawable/bg_smart_card" android:gravity="bottom" android:orientation="vertical" android:padding="14dp">
+                                    <TextView android:layout_width="40dp" android:layout_height="40dp" android:background="@drawable/bg_nav_active" android:gravity="center" android:text="♥" android:textColor="@color/tertiary" android:textSize="19sp" />
+                                    <Space android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
+                                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="좋아요" android:textColor="@color/text_primary" android:textSize="14sp" android:textStyle="bold" />
+                                    <TextView android:id="@+id/tvLikedCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="0곡" android:textColor="@color/muted" android:textSize="11sp" />
+                                </LinearLayout>
+                                <LinearLayout android:id="@+id/cardMostPlayed" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="5dp" android:layout_weight="1" android:background="@drawable/bg_smart_card" android:gravity="bottom" android:orientation="vertical" android:padding="14dp">
+                                    <TextView android:layout_width="40dp" android:layout_height="40dp" android:background="@drawable/bg_nav_active" android:gravity="center" android:text="↻" android:textColor="@color/accent" android:textSize="21sp" />
+                                    <Space android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1" />
+                                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="많이 재생" android:textColor="@color/text_primary" android:textSize="14sp" android:textStyle="bold" />
+                                    <TextView android:id="@+id/tvMostPlayedCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="0곡" android:textColor="@color/muted" android:textSize="11sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="26dp" android:text="발견" android:textColor="@color/text_primary" android:textSize="19sp" android:textStyle="bold" />
+                            <LinearLayout android:layout_width="match_parent" android:layout_height="104dp" android:layout_marginTop="10dp" android:orientation="horizontal">
+                                <LinearLayout android:id="@+id/cardCharts" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginEnd="5dp" android:layout_weight="1" android:background="@drawable/bg_smart_card" android:gravity="center_vertical" android:orientation="vertical" android:padding="16dp">
+                                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="▥  차트 허브" android:textColor="@color/text_primary" android:textSize="16sp" android:textStyle="bold" />
+                                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="국가별 인기곡 · 아티스트 · MV" android:textColor="@color/muted" android:textSize="11sp" />
+                                </LinearLayout>
+                                <LinearLayout android:id="@+id/cardDj" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="5dp" android:layout_weight="1" android:background="@drawable/bg_smart_card" android:gravity="center_vertical" android:orientation="vertical" android:padding="16dp">
+                                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✦  AI DJ" android:textColor="@color/accent" android:textSize="16sp" android:textStyle="bold" />
+                                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="자연어 + 내 취향으로 곡 발견" android:textColor="@color/muted" android:textSize="11sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="26dp" android:gravity="center_vertical" android:orientation="horizontal">
+                                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="대한민국 YouTube 차트" android:textColor="@color/text_primary" android:textSize="19sp" android:textStyle="bold" />
+                                <TextView android:id="@+id/tvChartStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="불러오는 중" android:textColor="@color/muted" android:textSize="11sp" />
+                            </LinearLayout>
+                            <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvCharts" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:nestedScrollingEnabled="false" android:overScrollMode="never" />
+                        </LinearLayout>
+                    </androidx.core.widget.NestedScrollView>
+
+                    <LinearLayout android:id="@+id/sectionSearch" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:visibility="gone">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="검색" android:textColor="@color/text_primary" android:textSize="24sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="YouTube Music과 YouTube를 음악 중심으로 찾습니다" android:textColor="@color/muted" android:textSize="11sp" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:gravity="center_vertical" android:orientation="horizontal">
+                            <EditText android:id="@+id/etSearch" android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1" android:background="@drawable/bg_search" android:hint="@string/search_hint" android:imeOptions="actionSearch" android:inputType="text" android:maxLines="1" android:paddingHorizontal="16dp" android:textColor="@color/text_primary" android:textColorHint="@color/muted" android:textSize="16sp" />
+                            <Button android:id="@+id/btnSearch" android:layout_width="wrap_content" android:layout_height="54dp" android:layout_marginStart="8dp" android:text="검색" android:textAllCaps="false" />
+                        </LinearLayout>
+                        <com.nolimit.music.ui.SearchDiscoveryView android:layout_width="match_parent" android:layout_height="wrap_content" />
+                        <ProgressBar android:id="@+id/progressSearch" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="3dp" android:layout_marginTop="4dp" android:indeterminate="true" android:visibility="gone" />
+                        <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvResults" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="6dp" android:layout_weight="1" />
+                    </LinearLayout>
+
+                    <LinearLayout android:id="@+id/sectionCharts" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:visibility="gone">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+                            <TextView android:id="@+id/btnChartsBack" android:layout_width="42dp" android:layout_height="42dp" android:gravity="center" android:text="‹" android:textColor="@color/text_primary" android:textSize="32sp" />
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="YouTube 차트" android:textColor="@color/text_primary" android:textSize="24sp" android:textStyle="bold" />
+                        </LinearLayout>
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="12dp" android:orientation="horizontal">
+                            <Spinner android:id="@+id/spinnerChartCategory" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginEnd="5dp" android:layout_weight="1" android:background="@drawable/bg_search" android:paddingHorizontal="10dp" />
+                            <Spinner android:id="@+id/spinnerChartCountry" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="5dp" android:layout_weight="1" android:background="@drawable/bg_search" android:paddingHorizontal="10dp" />
+                        </LinearLayout>
+                        <TextView android:id="@+id/tvChartBrowserStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="차트를 선택하세요" android:textColor="@color/muted" android:textSize="12sp" />
+                        <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvChartBrowser" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="6dp" android:layout_weight="1" />
+                    </LinearLayout>
+
+                    <LinearLayout android:id="@+id/sectionDj" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:visibility="gone">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+                            <TextView android:id="@+id/btnDjBack" android:layout_width="42dp" android:layout_height="42dp" android:gravity="center" android:text="‹" android:textColor="@color/text_primary" android:textSize="32sp" />
+                            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="AI DJ" android:textColor="@color/text_primary" android:textSize="24sp" android:textStyle="bold" />
+                        </LinearLayout>
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="예: 새벽에 들을 잔잔한 한국 노래 · 2000년대 신나는 노래" android:textColor="@color/muted" android:textSize="11sp" />
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
+                            <EditText android:id="@+id/etDjPrompt" android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1" android:background="@drawable/bg_search" android:hint="듣고 싶은 분위기를 말해보세요" android:imeOptions="actionDone" android:inputType="text" android:maxLines="1" android:paddingHorizontal="16dp" android:textColor="@color/text_primary" android:textColorHint="@color/muted" />
+                            <Button android:id="@+id/btnDjGenerate" android:layout_width="wrap_content" android:layout_height="54dp" android:layout_marginStart="8dp" android:text="DJ" android:textAllCaps="false" />
+                        </LinearLayout>
+                        <TextView android:id="@+id/tvDjStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="요청을 입력하면 좋아요와 재생 기록을 함께 반영합니다." android:textColor="@color/muted" android:textSize="12sp" />
+                        <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvDjResults" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="6dp" android:layout_weight="1" />
+                    </LinearLayout>
+
+                    <LinearLayout android:id="@+id/sectionPlaylist" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:visibility="gone">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                                <TextView android:id="@+id/tvPlaylistTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="플레이리스트" android:textColor="@color/text_primary" android:textSize="24sp" android:textStyle="bold" />
+                                <TextView android:id="@+id/tvPlaylistCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="0곡" android:textColor="@color/muted" android:textSize="11sp" />
+                            </LinearLayout>
+                            <Button android:id="@+id/btnPlayAll" android:layout_width="wrap_content" android:layout_height="46dp" android:text="전체 재생" android:textAllCaps="false" />
+                        </LinearLayout>
+                        <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:scrollbars="none"><LinearLayout android:id="@+id/playlistFolders" android:layout_width="wrap_content" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" /></HorizontalScrollView>
+                        <TextView android:id="@+id/btnCreatePlaylist" android:layout_width="wrap_content" android:layout_height="44dp" android:layout_marginTop="9dp" android:background="@drawable/bg_smart_card" android:gravity="center" android:paddingHorizontal="16dp" android:text="＋ 새 플레이리스트" android:textColor="@color/text_primary" android:textStyle="bold" />
+                        <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvPlaylist" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="10dp" android:layout_weight="1" />
+                    </LinearLayout>
+
+                    <androidx.core.widget.NestedScrollView android:id="@+id/sectionSettings" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingBottom="36dp">
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="설정" android:textColor="@color/text_primary" android:textSize="24sp" android:textStyle="bold" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:text="화면 테마" android:textColor="@color/text_primary" android:textSize="16sp" android:textStyle="bold" />
+                            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal">
+                                <Button android:id="@+id/btnLightTheme" android:layout_width="0dp" android:layout_height="50dp" android:layout_marginEnd="5dp" android:layout_weight="1" android:text="라이트" android:textAllCaps="false" />
+                                <Button android:id="@+id/btnDarkTheme" android:layout_width="0dp" android:layout_height="50dp" android:layout_marginStart="5dp" android:layout_weight="1" android:text="다크" android:textAllCaps="false" />
+                            </LinearLayout>
+                            <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchAutoplay" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="플레이리스트 자동재생" android:textColor="@color/text_primary" />
+                            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="켜면 선택한 곡 이후 곡들이 순서대로 이어집니다." android:textColor="@color/muted" android:textSize="12sp" />
+                            <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchMobileDownload" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:text="모바일 데이터로도 다운로드 허용" android:textColor="@color/text_primary" />
+                            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="끄면 Wi‑Fi에서만 대기열 다운로드를 진행합니다." android:textColor="@color/muted" android:textSize="12sp" />
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:text="백업" android:textColor="@color/text_primary" android:textSize="16sp" android:textStyle="bold" />
+                            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="플레이리스트·라이브러리·재생 기록·설정을 JSON으로 보관합니다." android:textColor="@color/muted" android:textSize="12sp" />
+                            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:orientation="horizontal">
+                                <Button android:id="@+id/btnExportBackup" android:layout_width="0dp" android:layout_height="50dp" android:layout_marginEnd="5dp" android:layout_weight="1" android:text="백업 내보내기" android:textAllCaps="false" />
+                                <Button android:id="@+id/btnImportBackup" android:layout_width="0dp" android:layout_height="50dp" android:layout_marginStart="5dp" android:layout_weight="1" android:text="백업 복원" android:textAllCaps="false" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </androidx.core.widget.NestedScrollView>
+                </FrameLayout>
             </LinearLayout>
 
-            <LinearLayout
-                android:id="@+id/sectionCharts"
+            <com.nolimit.music.ui.PlayerCardView
+                android:id="@+id/playerBar"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_height="100dp"
+                android:layout_gravity="bottom"
+                android:layout_marginLeft="18dp"
+                android:layout_marginRight="18dp"
+                android:layout_marginBottom="82dp"
+                android:background="@drawable/bg_card"
+                android:elevation="12dp"
                 android:orientation="vertical"
+                android:paddingLeft="10dp"
+                android:paddingTop="7dp"
+                android:paddingRight="8dp"
+                android:paddingBottom="4dp"
                 android:visibility="gone">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-                    <TextView android:id="@+id/btnChartsBack" android:layout_width="42dp" android:layout_height="42dp" android:gravity="center" android:text="‹" android:textColor="@color/text_primary" android:textSize="32sp" />
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="YouTube 차트" android:textColor="@color/text_primary" android:textSize="22sp" android:textStyle="bold" />
-                </LinearLayout>
-                <LinearLayout android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="10dp" android:orientation="horizontal">
-                    <Spinner android:id="@+id/spinnerChartCategory" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginEnd="5dp" android:layout_weight="1" android:background="@drawable/bg_search" android:paddingHorizontal="8dp" />
-                    <Spinner android:id="@+id/spinnerChartCountry" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="5dp" android:layout_weight="1" android:background="@drawable/bg_search" android:paddingHorizontal="8dp" />
-                </LinearLayout>
-                <TextView android:id="@+id/tvChartBrowserStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="차트를 선택하세요" android:textColor="@color/muted" android:textSize="12sp" />
-                <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvChartBrowser" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="6dp" android:layout_weight="1" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/sectionDj"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-                    <TextView android:id="@+id/btnDjBack" android:layout_width="42dp" android:layout_height="42dp" android:gravity="center" android:text="‹" android:textColor="@color/text_primary" android:textSize="32sp" />
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="AI DJ 베타" android:textColor="@color/text_primary" android:textSize="22sp" android:textStyle="bold" />
-                </LinearLayout>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="예: 새벽에 들을 잔잔한 한국 노래 · 2000년대 신나는 노래 · 좋아요한 곡과 비슷한 음악" android:textColor="@color/muted" android:textSize="11sp" />
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal">
-                    <EditText android:id="@+id/etDjPrompt" android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1" android:background="@drawable/bg_search" android:hint="듣고 싶은 분위기를 말해보세요" android:imeOptions="actionDone" android:inputType="text" android:maxLines="1" android:paddingHorizontal="14dp" android:textColor="@color/text_primary" android:textColorHint="@color/muted" />
-                    <Button android:id="@+id/btnDjGenerate" android:layout_width="wrap_content" android:layout_height="52dp" android:layout_marginStart="8dp" android:text="DJ" />
-                </LinearLayout>
-                <TextView android:id="@+id/tvDjStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="요청을 입력하면 내 좋아요·재생 기록을 함께 반영합니다." android:textColor="@color/muted" android:textSize="12sp" />
-                <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvDjResults" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="6dp" android:layout_weight="1" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/sectionPlaylist"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-                    <TextView android:id="@+id/tvPlaylistTitle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="플레이리스트" android:textColor="@color/text_primary" android:textSize="22sp" android:textStyle="bold" />
-                    <Button android:id="@+id/btnPlayAll" android:layout_width="wrap_content" android:layout_height="44dp" android:text="전체 재생" />
-                </LinearLayout>
-                <TextView android:id="@+id/tvPlaylistCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="0곡" android:textColor="@color/muted" android:textSize="12sp" />
-                <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:scrollbars="none"><LinearLayout android:id="@+id/playlistFolders" android:layout_width="wrap_content" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" /></HorizontalScrollView>
-                <TextView android:id="@+id/btnCreatePlaylist" android:layout_width="wrap_content" android:layout_height="44dp" android:layout_marginTop="8dp" android:background="@drawable/bg_smart_card" android:gravity="center" android:paddingHorizontal="16dp" android:text="＋ 새 플레이리스트" android:textColor="@color/text_primary" android:textStyle="bold" />
-                <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvPlaylist" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="10dp" android:layout_weight="1" />
-            </LinearLayout>
-
-            <androidx.core.widget.NestedScrollView android:id="@+id/sectionSettings" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone">
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingBottom="28dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="설정" android:textColor="@color/text_primary" android:textSize="22sp" android:textStyle="bold" />
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="22dp" android:text="화면 테마" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal">
-                        <Button android:id="@+id/btnLightTheme" android:layout_width="0dp" android:layout_height="50dp" android:layout_marginEnd="5dp" android:layout_weight="1" android:text="라이트" />
-                        <Button android:id="@+id/btnDarkTheme" android:layout_width="0dp" android:layout_height="50dp" android:layout_marginStart="5dp" android:layout_weight="1" android:text="다크" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:gravity="center_vertical" android:orientation="horizontal">
+                    <ImageView android:id="@+id/ivNowArtwork" android:layout_width="48dp" android:layout_height="48dp" android:background="@drawable/bg_search" android:clipToOutline="true" android:scaleType="centerCrop" android:src="@drawable/ic_music_note" />
+                    <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="10dp" android:layout_weight="1" android:gravity="center_vertical" android:orientation="vertical">
+                        <TextView android:id="@+id/tvNowPlaying" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:text="재생 중" android:textColor="@color/text_primary" android:textSize="14sp" android:textStyle="bold" />
+                        <TextView android:id="@+id/tvNowArtist" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:textColor="@color/muted" android:textSize="10sp" />
                     </LinearLayout>
-                    <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchAutoplay" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="플레이리스트 자동재생" android:textColor="@color/text_primary" />
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="켜면 선택한 곡 이후의 곡들이 순서대로 재생됩니다." android:textColor="@color/muted" android:textSize="12sp" />
-                    <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchMobileDownload" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:text="모바일 데이터로도 다운로드 허용" android:textColor="@color/text_primary" />
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="끄면 Wi‑Fi에서만 저장합니다. 켜면 LTE/5G에서도 저장할 수 있습니다." android:textColor="@color/muted" android:textSize="12sp" />
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:text="플레이리스트 백업" android:textColor="@color/text_primary" android:textSize="15sp" android:textStyle="bold" />
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="공유 저장소에 JSON 백업을 남기면 앱을 삭제한 뒤에도 다시 불러올 수 있습니다." android:textColor="@color/muted" android:textSize="12sp" />
-                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:orientation="horizontal">
-                        <Button android:id="@+id/btnExportBackup" android:layout_width="0dp" android:layout_height="50dp" android:layout_marginEnd="5dp" android:layout_weight="1" android:text="백업 내보내기" />
-                        <Button android:id="@+id/btnImportBackup" android:layout_width="0dp" android:layout_height="50dp" android:layout_marginStart="5dp" android:layout_weight="1" android:text="백업 복원" />
-                    </LinearLayout>
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="홈 화면 위젯은 한 줄 높이로 사용할 수 있습니다." android:textColor="@color/muted" android:textSize="12sp" />
+                    <TextView android:id="@+id/btnPrevious" android:layout_width="38dp" android:layout_height="46dp" android:gravity="center" android:text="|‹" android:textColor="@color/text_primary" android:textSize="18sp" />
+                    <TextView android:id="@+id/btnPlayPause" android:layout_width="42dp" android:layout_height="46dp" android:background="@drawable/bg_nav_active" android:gravity="center" android:text="▶" android:textColor="@color/text_primary" android:textSize="19sp" />
+                    <TextView android:id="@+id/btnNext" android:layout_width="38dp" android:layout_height="46dp" android:gravity="center" android:text="›|" android:textColor="@color/text_primary" android:textSize="18sp" />
                 </LinearLayout>
-            </androidx.core.widget.NestedScrollView>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="28dp" android:gravity="center_vertical" android:orientation="horizontal">
+                    <TextView android:id="@+id/tvCurrentTime" android:layout_width="38dp" android:layout_height="wrap_content" android:gravity="center" android:text="0:00" android:textColor="@color/muted" android:textSize="9sp" />
+                    <SeekBar android:id="@+id/playerSeek" android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1" android:max="1000" android:paddingStart="0dp" android:paddingEnd="0dp" />
+                    <TextView android:id="@+id/tvDuration" android:layout_width="38dp" android:layout_height="wrap_content" android:gravity="center" android:text="0:00" android:textColor="@color/muted" android:textSize="9sp" />
+                </LinearLayout>
+            </com.nolimit.music.ui.PlayerCardView>
         </FrameLayout>
-    </LinearLayout>
+    </eightbitlab.com.blurview.BlurTarget>
 
-    <com.nolimit.music.ui.PlayerCardView
-        android:id="@+id/playerBar"
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/bottomBlur"
         android:layout_width="match_parent"
-        android:layout_height="98dp"
+        android:layout_height="64dp"
         android:layout_gravity="bottom"
-        android:layout_marginLeft="22dp"
-        android:layout_marginRight="22dp"
-        android:layout_marginBottom="76dp"
-        android:background="@drawable/bg_card"
-        android:elevation="10dp"
-        android:orientation="vertical"
-        android:paddingLeft="9dp"
-        android:paddingTop="7dp"
-        android:paddingRight="7dp"
-        android:paddingBottom="4dp"
-        android:visibility="gone">
-
-        <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical" android:orientation="horizontal">
-            <ImageView android:id="@+id/ivNowArtwork" android:layout_width="46dp" android:layout_height="46dp" android:scaleType="centerCrop" android:src="@drawable/ic_music_note" />
-            <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="9dp" android:layout_weight="1" android:gravity="center_vertical" android:orientation="vertical">
-                <TextView android:id="@+id/tvNowPlaying" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:text="재생 중" android:textColor="@color/text_primary" android:textSize="13sp" android:textStyle="bold" />
-                <TextView android:id="@+id/tvNowArtist" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:textColor="@color/muted" android:textSize="10sp" />
-            </LinearLayout>
-            <TextView android:id="@+id/btnPrevious" android:layout_width="38dp" android:layout_height="46dp" android:gravity="center" android:text="|‹" android:textColor="@color/text_primary" android:textSize="18sp" />
-            <TextView android:id="@+id/btnPlayPause" android:layout_width="42dp" android:layout_height="46dp" android:gravity="center" android:text="▶" android:textColor="@color/text_primary" android:textSize="20sp" />
-            <TextView android:id="@+id/btnNext" android:layout_width="38dp" android:layout_height="46dp" android:gravity="center" android:text="›|" android:textColor="@color/text_primary" android:textSize="18sp" />
-        </LinearLayout>
-
-        <LinearLayout android:layout_width="match_parent" android:layout_height="28dp" android:gravity="center_vertical" android:orientation="horizontal">
-            <TextView android:id="@+id/tvCurrentTime" android:layout_width="38dp" android:layout_height="wrap_content" android:gravity="center" android:text="0:00" android:textColor="@color/muted" android:textSize="9sp" />
-            <SeekBar android:id="@+id/playerSeek" android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1" android:max="1000" android:paddingStart="0dp" android:paddingEnd="0dp" />
-            <TextView android:id="@+id/tvDuration" android:layout_width="38dp" android:layout_height="wrap_content" android:gravity="center" android:text="0:00" android:textColor="@color/muted" android:textSize="9sp" />
-        </LinearLayout>
-    </com.nolimit.music.ui.PlayerCardView>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="58dp"
-        android:layout_gravity="bottom"
-        android:layout_marginLeft="48dp"
-        android:layout_marginRight="48dp"
+        android:layout_marginLeft="34dp"
+        android:layout_marginRight="34dp"
         android:layout_marginBottom="12dp"
         android:background="@drawable/bg_bottom_nav"
-        android:elevation="16dp"
-        android:gravity="center"
-        android:orientation="horizontal">
-        <LinearLayout android:id="@+id/tabHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/iconHome" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="⌂" android:textColor="@color/nav_icon" android:textSize="21sp" /><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="홈" android:textColor="@color/nav_icon" android:textSize="8sp" android:textStyle="bold" /></LinearLayout>
-        <LinearLayout android:id="@+id/tabSearch" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/iconSearch" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="⌕" android:textColor="@color/nav_icon" android:textSize="21sp" /><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="검색" android:textColor="@color/nav_icon" android:textSize="8sp" android:textStyle="bold" /></LinearLayout>
-        <LinearLayout android:id="@+id/tabPlaylist" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/iconPlaylist" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="♫" android:textColor="@color/nav_icon" android:textSize="20sp" /><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="플리" android:textColor="@color/nav_icon" android:textSize="8sp" android:textStyle="bold" /></LinearLayout>
-        <LinearLayout android:id="@+id/tabSettings" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/iconSettings" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="⚙" android:textColor="@color/nav_icon" android:textSize="19sp" /><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="설정" android:textColor="@color/nav_icon" android:textSize="8sp" android:textStyle="bold" /></LinearLayout>
-    </LinearLayout>
+        android:elevation="18dp"
+        app:blurOverlayColor="@color/overlay_glass">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingHorizontal="8dp">
+            <LinearLayout android:id="@+id/tabHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/iconHome" android:layout_width="40dp" android:layout_height="36dp" android:gravity="center" android:text="" /><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="홈" android:textColor="@color/nav_icon" android:textSize="9sp" android:textStyle="bold" /></LinearLayout>
+            <LinearLayout android:id="@+id/tabSearch" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/iconSearch" android:layout_width="40dp" android:layout_height="36dp" android:gravity="center" android:text="" /><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="검색" android:textColor="@color/nav_icon" android:textSize="9sp" android:textStyle="bold" /></LinearLayout>
+            <LinearLayout android:id="@+id/tabPlaylist" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/iconPlaylist" android:layout_width="40dp" android:layout_height="36dp" android:gravity="center" android:text="" /><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="플리" android:textColor="@color/nav_icon" android:textSize="9sp" android:textStyle="bold" /></LinearLayout>
+            <LinearLayout android:id="@+id/tabSettings" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/iconSettings" android:layout_width="40dp" android:layout_height="36dp" android:gravity="center" android:text="" /><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="설정" android:textColor="@color/nav_icon" android:textSize="9sp" android:textStyle="bold" /></LinearLayout>
+        </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
 </FrameLayout>
