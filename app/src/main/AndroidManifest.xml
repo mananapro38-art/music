@@ -21,6 +21,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NoLimitMusic">
 
+        <provider
+            android:name=".V12BootstrapProvider"
+            android:authorities="${applicationId}.v12bootstrap"
+            android:exported="false"
+            android:initOrder="100" />
+
         <activity
             android:name=".PlaylistScreenshotImportActivity"
             android:exported="true"
