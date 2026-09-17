@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.media.audiofx.AudioEffect;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,7 +16,10 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
@@ -53,6 +57,7 @@ public final class PlayerActivity extends AppCompatActivity {
     private SharedPreferences settings;
     private ListenableFuture<MediaController> controllerFuture;
     private MediaController controller;
+    private ActivityResultLauncher<Intent> lyricsImportLauncher;
     private LinearLayout root;
     private View artworkFrame;
     private ScrollView fullLyricsScroll;
@@ -76,7 +81,25 @@ public final class PlayerActivity extends AppCompatActivity {
         setContentView(R.layout.activity_player);
         library = new LibraryStore(this);
         subtitles = new SubtitleStore(this);
+        setupLyricsImportLauncher();
         bindViews(); setupActions(); connectPlayer(); handler.post(ticker);
+    }
+
+    private void setupLyricsImportLauncher() {
+        lyricsImportLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() != RESULT_OK || result.getData() == null || result.getData().getData() == null) return;
+            Uri uri = result.getData().getData();
+            if (controller == null || controller.getCurrentMediaItem() == null) { toast("먼저 곡을 재생해 주세요."); return; }
+            String mediaId = controller.getCurrentMediaItem().mediaId;
+            io.execute(() -> {
+                try {
+                    subtitles.importLyrics(uri, mediaId);
+                    runOnUiThread(() -> { loadedMediaId = ""; syncPlayerState(); toast("가사 파일을 연결했습니다."); });
+                } catch (Exception e) {
+                    runOnUiThread(() -> toast("가사 가져오기 실패 · " + compact(e)));
+                }
+            });
+        });
     }
 
     private void bindViews() {
@@ -103,6 +126,7 @@ public final class PlayerActivity extends AppCompatActivity {
         findViewById(R.id.btnPlayerEq).setOnClickListener(v -> openEq());
         speed.setOnClickListener(v -> cycleSpeed());
         lyricsMode.setOnClickListener(v -> toggleLyricsMode());
+        lyricsMode.setOnLongClickListener(v -> { importLyricsFile(); return true; });
         currentLine.setOnClickListener(v -> toggleLyricsMode());
 
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -115,6 +139,15 @@ public final class PlayerActivity extends AppCompatActivity {
                 userSeeking = false; syncProgressAndLyrics();
             }
         });
+    }
+
+    private void importLyricsFile() {
+        if (controller == null || controller.getCurrentMediaItem() == null) { toast("먼저 곡을 재생해 주세요."); return; }
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("text/*");
+        i.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"text/plain", "text/vtt", "application/x-subrip", "application/octet-stream"});
+        lyricsImportLauncher.launch(i);
     }
 
     private void connectPlayer() {
@@ -148,7 +181,7 @@ public final class PlayerActivity extends AppCompatActivity {
             loadedMediaId = mediaId; cues = subtitles.load(mediaId);
             if (track != null) { ArtworkLoader.load(artwork, this, track.id, track.thumbnailUrl); applyArtworkTone(track); }
             else artwork.setImageResource(R.drawable.ic_music_note);
-            subtitleStatus.setText(cues.isEmpty() ? "사용할 수 있는 자막이 없습니다." : "자막 " + cues.size() + "줄 · 줄을 눌러 이동");
+            subtitleStatus.setText(cues.isEmpty() ? "자막 없음 · ‘가사 전체’ 버튼을 길게 눌러 LRC/VTT/SRT 가져오기" : "가사/자막 " + cues.size() + "줄 · 줄을 눌러 이동");
             renderFullLyrics();
         }
         syncModeButtons(); syncLike(); syncProgressAndLyrics();
@@ -185,15 +218,17 @@ public final class PlayerActivity extends AppCompatActivity {
     }
 
     private void showSleepDialog() {
-        String[] options = {"15분", "30분", "60분", "현재 곡이 끝나면", "타이머 끄기"};
+        String[] options = {"15분", "30분", "60분", "현재 곡이 끝나면", "현재 대기열이 끝나면", "타이머 끄기"};
         new AlertDialog.Builder(this).setTitle("수면 타이머").setItems(options, (d, which) -> {
-            long deadline = 0L; long now = System.currentTimeMillis();
+            long deadline = 0L; long now = System.currentTimeMillis(); boolean queueEnd = false;
             if (which == 0) deadline = now + 15 * 60000L;
             else if (which == 1) deadline = now + 30 * 60000L;
             else if (which == 2) deadline = now + 60 * 60000L;
             else if (which == 3) { long duration = effectiveDurationMs(); long remain = controller == null ? 0 : Math.max(0, duration - controller.getCurrentPosition()); deadline = remain > 0 ? now + remain : 0L; }
-            settings.edit().putLong("sleep_deadline", deadline).apply();
-            android.widget.Toast.makeText(this, deadline == 0 ? "수면 타이머를 껐습니다." : "수면 타이머를 설정했습니다.", android.widget.Toast.LENGTH_SHORT).show();
+            else if (which == 4) queueEnd = true;
+            settings.edit().putLong("sleep_deadline", deadline).putBoolean("sleep_at_queue_end", queueEnd).apply();
+            String message = queueEnd ? "현재 대기열이 끝나면 재생을 멈춥니다." : deadline == 0 ? "수면 타이머를 껐습니다." : "수면 타이머를 설정했습니다.";
+            toast(message);
         }).show();
     }
 
@@ -212,7 +247,7 @@ public final class PlayerActivity extends AppCompatActivity {
     private void renderFullLyrics() {
         cueViews.clear(); fullLyricsContainer.removeAllViews();
         if (cues.isEmpty()) {
-            TextView empty = lyricView("이 곡에는 표시할 자막이 없습니다.", false); fullLyricsContainer.addView(empty); return;
+            TextView empty = lyricView("표시할 가사가 없습니다. ‘가사 전체’ 버튼을 길게 눌러 LRC/VTT/SRT 파일을 연결할 수 있습니다.", false); fullLyricsContainer.addView(empty); return;
         }
         for (SubtitleStore.Cue cue : cues) {
             TextView line = lyricView(cue.text, false); line.setOnClickListener(v -> { if (controller != null) controller.seekTo(cue.startMs); });
@@ -234,12 +269,17 @@ public final class PlayerActivity extends AppCompatActivity {
     private int findCueIndex(long positionMs) {
         if (cues.isEmpty()) return -1; int lo = 0, hi = cues.size() - 1, answer = -1;
         while (lo <= hi) { int mid = (lo + hi) >>> 1; if (cues.get(mid).startMs <= positionMs) { answer = mid; lo = mid + 1; } else hi = mid - 1; }
+        if (answer >= 0 && positionMs > cues.get(answer).endMs) return -1;
         return answer;
     }
 
     private void showLyrics(int index) {
         if (cues.isEmpty()) { previousLine.setText(""); currentLine.setText("♪"); nextLine.setText(""); return; }
-        if (index < 0) { previousLine.setText(""); currentLine.setText("♪"); nextLine.setText(cues.get(0).text); return; }
+        if (index < 0) {
+            int next = 0; long pos = controller == null ? 0L : controller.getCurrentPosition();
+            while (next < cues.size() && cues.get(next).startMs <= pos) next++;
+            previousLine.setText(""); currentLine.setText("♪"); nextLine.setText(next < cues.size() ? cues.get(next).text : ""); return;
+        }
         previousLine.setText(index > 0 ? cues.get(index - 1).text : ""); currentLine.setText(cues.get(index).text); nextLine.setText(index + 1 < cues.size() ? cues.get(index + 1).text : "");
     }
 
@@ -262,6 +302,8 @@ public final class PlayerActivity extends AppCompatActivity {
     private static int blend(int base, int accent, float a) { return Color.rgb((int)(Color.red(base)*(1-a)+Color.red(accent)*a),(int)(Color.green(base)*(1-a)+Color.green(accent)*a),(int)(Color.blue(base)*(1-a)+Color.blue(accent)*a)); }
     private long effectiveDurationMs() { if (controller == null) return 0L; long d = controller.getDuration(); if (d != C.TIME_UNSET && d > 0) return d; MediaItem current = controller.getCurrentMediaItem(); if (current != null) { Track t = library.find(current.mediaId); if (t != null && t.durationSeconds > 0) return t.durationSeconds * 1000L; } return 0L; }
     private static String formatTime(long ms) { if (ms <= 0) return "0:00"; long seconds=ms/1000L, minutes=seconds/60L, rem=seconds%60L; if(minutes>=60){long h=minutes/60L;return String.format(Locale.ROOT,"%d:%02d:%02d",h,minutes%60L,rem);} return String.format(Locale.ROOT,"%d:%02d",minutes,rem); }
+    private static String compact(Throwable e) { String m=e==null?"":e.getMessage(); if(m==null||m.trim().isEmpty())return e==null?"오류":e.getClass().getSimpleName(); m=m.replace('\n',' ').replace('\r',' ').trim(); return m.length()>120?m.substring(0,120):m; }
+    private void toast(String text){Toast.makeText(this,text,Toast.LENGTH_SHORT).show();}
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
 
     @Override protected void onDestroy() { handler.removeCallbacks(ticker); if (controllerFuture != null) MediaController.releaseFuture(controllerFuture); controller=null; io.shutdownNow(); super.onDestroy(); }
