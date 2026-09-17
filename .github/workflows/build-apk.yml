@@ -27,21 +27,15 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: no-limit-music-debug-keystore-v1
+          fail-on-cache-miss: true
 
-      - name: Create stable test signing key if missing
+      - name: Verify signing key exists
         run: |
-          mkdir -p "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -v \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -dname "CN=Android Debug,O=Android,C=US" \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000
-          fi
+          test -s "$HOME/.android/debug.keystore"
+          keytool -list -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey | grep -E 'SHA256:'
 
       - name: Install Android SDK packages
         run: |
@@ -60,8 +54,22 @@ jobs:
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
 
+      - name: Verify APK signing certificate
+        run: |
+          KEY_CERT=$(keytool -list -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          APK_CERT=$("$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --print-certs \
+            app/build/outputs/apk/debug/app-debug.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr '[:lower:]' '[:upper:]')
+          echo "Keystore certificate: $KEY_CERT"
+          echo "APK certificate:      $APK_CERT"
+          test -n "$KEY_CERT"
+          test -n "$APK_CERT"
+          test "$KEY_CERT" = "$APK_CERT"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: no-limit-music-v0.6-debug
+          name: no-limit-music-v0.7-debug
           path: app/build/outputs/apk/debug/app-debug.apk
