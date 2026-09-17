@@ -2,28 +2,28 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="5dp"
-    android:background="@drawable/bg_card"
+    android:layout_marginBottom="7dp"
+    android:background="@drawable/bg_smart_card"
     android:gravity="center_vertical"
-    android:minHeight="68dp"
+    android:minHeight="76dp"
     android:orientation="horizontal"
     android:paddingLeft="8dp"
-    android:paddingTop="7dp"
+    android:paddingTop="8dp"
     android:paddingRight="8dp"
-    android:paddingBottom="7dp">
+    android:paddingBottom="8dp">
 
     <TextView
-        android:layout_width="24dp"
-        android:layout_height="40dp"
+        android:layout_width="22dp"
+        android:layout_height="44dp"
         android:gravity="center"
         android:text="⋮⋮"
         android:textColor="@color/muted"
-        android:textSize="13sp" />
+        android:textSize="12sp" />
 
     <ImageView
         android:id="@+id/ivTrackArtwork"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
         android:layout_marginStart="4dp"
         android:background="@drawable/bg_search"
         android:clipToOutline="true"
@@ -34,10 +34,9 @@
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="9dp"
+        android:layout_marginStart="11dp"
         android:layout_weight="1"
         android:orientation="vertical">
-
         <TextView
             android:id="@+id/tvTrackTitle"
             android:layout_width="match_parent"
@@ -45,14 +44,13 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/text_primary"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
-
         <TextView
             android:id="@+id/tvTrackArtist"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="3dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/muted"
@@ -61,17 +59,17 @@
 
     <TextView
         android:id="@+id/tvLike"
-        android:layout_width="38dp"
-        android:layout_height="42dp"
+        android:layout_width="40dp"
+        android:layout_height="44dp"
         android:gravity="center"
         android:text="♡"
-        android:textColor="@color/text_primary"
+        android:textColor="@color/tertiary"
         android:textSize="20sp" />
 
     <TextView
         android:id="@+id/tvRemove"
-        android:layout_width="38dp"
-        android:layout_height="42dp"
+        android:layout_width="40dp"
+        android:layout_height="44dp"
         android:gravity="center"
         android:text="⋯"
         android:textColor="@color/muted"
