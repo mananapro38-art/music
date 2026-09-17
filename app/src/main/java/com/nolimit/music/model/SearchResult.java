@@ -9,9 +9,15 @@ public final class SearchResult {
     public final String thumbnail;
     public final int score;
     public final String badge;
+    public final String album;
 
     public SearchResult(String id, String title, String channel, String url,
                         long durationSeconds, String thumbnail, int score, String badge) {
+        this(id, title, channel, url, durationSeconds, thumbnail, score, badge, "");
+    }
+
+    public SearchResult(String id, String title, String channel, String url,
+                        long durationSeconds, String thumbnail, int score, String badge, String album) {
         this.id = id;
         this.title = title;
         this.channel = channel;
@@ -20,9 +26,10 @@ public final class SearchResult {
         this.thumbnail = thumbnail;
         this.score = score;
         this.badge = badge;
+        this.album = album == null ? "" : album;
     }
 
     public SearchResult withRanking(int newScore, String newBadge) {
-        return new SearchResult(id, title, channel, url, durationSeconds, thumbnail, newScore, newBadge);
+        return new SearchResult(id, title, channel, url, durationSeconds, thumbnail, newScore, newBadge, album);
     }
 }
