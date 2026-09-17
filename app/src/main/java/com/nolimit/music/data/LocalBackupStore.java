@@ -15,7 +15,10 @@ import java.nio.charset.StandardCharsets;
 
 public final class LocalBackupStore {
     private final Context context;
-    public LocalBackupStore(Context context) { this.context = context.getApplicationContext(); }
+
+    public LocalBackupStore(Context context) {
+        this.context = context.getApplicationContext();
+    }
 
     public void exportTo(Uri uri) throws Exception {
         SharedPreferences library = context.getSharedPreferences("library", Context.MODE_PRIVATE);
@@ -40,7 +43,8 @@ public final class LocalBackupStore {
         root.put("settings", s);
         try (OutputStream out = context.getContentResolver().openOutputStream(uri, "wt")) {
             if (out == null) throw new IllegalStateException("백업 파일을 열 수 없습니다.");
-            out.write(root.toString(2).getBytes(StandardCharsets.UTF_8)); out.flush();
+            out.write(root.toString(2).getBytes(StandardCharsets.UTF_8));
+            out.flush();
         }
     }
 
@@ -49,16 +53,27 @@ public final class LocalBackupStore {
         try (InputStream in = context.getContentResolver().openInputStream(uri)) {
             if (in == null) throw new IllegalStateException("백업 파일을 읽을 수 없습니다.");
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                String line; while ((line = reader.readLine()) != null) raw.append(line);
+                String line;
+                while ((line = reader.readLine()) != null) raw.append(line);
             }
         }
+
         JSONObject root = new JSONObject(raw.toString());
-        JSONArray library = root.optJSONArray("library"); JSONArray playlists = root.optJSONArray("playlists");
+        JSONArray library = root.optJSONArray("library");
+        JSONArray playlists = root.optJSONArray("playlists");
         if (library == null || playlists == null) throw new IllegalArgumentException("No Limit Music 백업 파일이 아닙니다.");
-        context.getSharedPreferences("library", Context.MODE_PRIVATE).edit().putString("tracks", library.toString()).commit();
-        context.getSharedPreferences("playlists", Context.MODE_PRIVATE).edit().putString("items", playlists.toString()).commit();
+
+        context.getSharedPreferences("library", Context.MODE_PRIVATE).edit()
+                .putString("tracks", library.toString()).commit();
+        context.getSharedPreferences("playlists", Context.MODE_PRIVATE).edit()
+                .putString("items", playlists.toString()).commit();
+
         JSONArray history = root.optJSONArray("history");
-        if (history != null) context.getSharedPreferences("history", Context.MODE_PRIVATE).edit().putString("items", history.toString()).commit();
+        if (history != null) {
+            context.getSharedPreferences("history", Context.MODE_PRIVATE).edit()
+                    .putString("items", history.toString()).commit();
+        }
+
         JSONObject s = root.optJSONObject("settings");
         if (s != null) {
             SharedPreferences.Editor e = context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit();
@@ -73,5 +88,10 @@ public final class LocalBackupStore {
             if (s.has("repeatMode")) e.putInt("repeat_mode", s.optInt("repeatMode", 0));
             e.commit();
         }
+
+        // If the app was reinstalled, private playback paths from the backup no longer exist.
+        // Rehydrate them from the durable Music/No Limit Music mirror when permission is available.
+        try { new LibraryStore(context).importSharedMusic(); }
+        catch (Exception ignored) { }
     }
 }
