@@ -14,6 +14,7 @@ import java.util.List;
 public final class DownloadTaskStore {
     private static final String PREFS = "download_tasks";
     private static final String KEY_ITEMS = "items";
+    private final Context context;
     private final SharedPreferences prefs;
 
     public static final class Task {
@@ -33,7 +34,8 @@ public final class DownloadTaskStore {
     }
 
     public DownloadTaskStore(Context context) {
-        prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        this.context = context.getApplicationContext();
+        prefs = this.context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         recoverInterrupted();
     }
 
@@ -76,6 +78,7 @@ public final class DownloadTaskStore {
 
     public synchronized void retry(String id) {
         update(id, "pending", 0, "");
+        DownloadQueueManager.get(context).kick();
     }
 
     public synchronized void remove(String id) {
