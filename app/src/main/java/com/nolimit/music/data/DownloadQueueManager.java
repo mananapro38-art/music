@@ -78,10 +78,13 @@ public final class DownloadQueueManager {
                     "https://www.youtube.com/watch?v=" + track.id, track.durationSeconds, thumb, 0, "복원", track.album);
             if (tasks.enqueue(item)) count++;
         }
-        notifyQueue(); kick(); return count;
+        notifyQueue();
+        kick();
+        return count;
     }
 
     public void retry(String id) { tasks.retry(id); notifyQueue(); kick(); }
+
     public void kick() {
         if (!running.compareAndSet(false, true)) return;
         worker.execute(this::runLoop);
@@ -97,20 +100,26 @@ public final class DownloadQueueManager {
                 if (!NetworkUtil.canDownload(context, allowMobile)) break;
                 SearchResult item = task.item;
                 try {
-                    tasks.setRunning(item.id); notifyQueue();
+                    // YoutubeRepository owns the persisted pending/running/done transition.
+                    // The queue manager only serializes tasks and broadcasts UI progress.
+                    notifyQueue();
                     File file = youtube.downloadAudio(item, (percent, line) -> {
                         int p = Math.max(0, Math.min(100, Math.round(percent)));
-                        tasks.setProgress(item.id, p); notifyProgress(item.id, p, item.title);
+                        notifyProgress(item.id, p, item.title);
                     });
                     ArtworkLoader.cacheToDisk(context, item.id, item.thumbnail);
                     Track track = new Track(item.id, item.title, item.channel, file.getAbsolutePath(), item.durationSeconds,
                             System.currentTimeMillis(), false, 0, 0L, item.thumbnail, item.album, AutoTagger.infer(item.title, item.channel));
                     library.upsert(track);
-                    Track saved = library.find(item.id); if (saved != null) track = saved;
+                    Track saved = library.find(item.id);
+                    if (saved != null) track = saved;
                     playlists.addTrack(PlaylistStore.DEFAULT_ID, track.id);
-                    tasks.setDone(item.id); notifyCompleted(track); notifyQueue();
+                    notifyCompleted(track);
+                    notifyQueue();
                 } catch (Exception e) {
-                    String error = compact(e); tasks.setFailed(item.id, error); notifyFailed(item, error); notifyQueue();
+                    String error = compact(e);
+                    notifyFailed(item, error);
+                    notifyQueue();
                 }
             }
         } catch (Exception ignored) {
@@ -124,5 +133,10 @@ public final class DownloadQueueManager {
     private void notifyProgress(String id, int progress, String title) { main.post(() -> { for (Listener l : listeners) l.onProgress(id, progress, title); }); }
     private void notifyCompleted(Track track) { main.post(() -> { for (Listener l : listeners) l.onCompleted(track); }); }
     private void notifyFailed(SearchResult item, String error) { main.post(() -> { for (Listener l : listeners) l.onFailed(item, error); }); }
-    private static String compact(Throwable e) { String m = e == null ? "" : e.getMessage(); if (m == null || m.trim().isEmpty()) return e == null ? "알 수 없는 오류" : e.getClass().getSimpleName(); m = m.replace('\n',' ').replace('\r',' ').trim(); return m.length() > 160 ? m.substring(0,160) : m; }
+    private static String compact(Throwable e) {
+        String m = e == null ? "" : e.getMessage();
+        if (m == null || m.trim().isEmpty()) return e == null ? "알 수 없는 오류" : e.getClass().getSimpleName();
+        m = m.replace('\n',' ').replace('\r',' ').trim();
+        return m.length() > 160 ? m.substring(0,160) : m;
+    }
 }
