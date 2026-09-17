@@ -2,8 +2,10 @@ package com.nolimit.music.data;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.StatFs;
 
 import com.nolimit.music.model.SearchResult;
 import com.nolimit.music.model.Track;
@@ -24,6 +26,8 @@ public final class DownloadQueueManager {
         void onFailed(SearchResult item, String error);
     }
 
+    private static final String KEY_PAUSED = "download_queue_paused";
+    private static final long MIN_FREE_BYTES = 128L * 1024L * 1024L;
     private static volatile DownloadQueueManager instance;
     public static DownloadQueueManager get(Context context) {
         if (instance == null) synchronized (DownloadQueueManager.class) {
@@ -95,8 +99,19 @@ public final class DownloadQueueManager {
     }
 
     public void retry(String id) { tasks.retry(id); notifyQueue(); kick(); }
+    public boolean isPaused() { return settings.getBoolean(KEY_PAUSED, false); }
+    public void setPaused(boolean paused) { settings.edit().putBoolean(KEY_PAUSED, paused).apply(); notifyQueue(); if (!paused) kick(); }
+
+    public long freeBytes() {
+        try {
+            File base = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC);
+            if (base == null) base = context.getFilesDir();
+            return new StatFs(base.getAbsolutePath()).getAvailableBytes();
+        } catch (Exception e) { return Long.MAX_VALUE; }
+    }
 
     public void kick() {
+        if (isPaused()) return;
         if (!running.compareAndSet(false, true)) return;
         worker.execute(this::runLoop);
     }
@@ -105,10 +120,18 @@ public final class DownloadQueueManager {
         try {
             if (!engineReady) { youtube.init(); engineReady = true; }
             while (true) {
+                if (isPaused()) break;
                 DownloadTaskStore.Task task = tasks.nextPending();
                 if (task == null) break;
                 boolean allowMobile = settings.getBoolean("allow_mobile_download", false);
                 if (!NetworkUtil.canDownload(context, allowMobile)) break;
+                if (freeBytes() < MIN_FREE_BYTES) {
+                    String error = "저장 공간 부족 · 최소 128MB의 여유 공간이 필요합니다.";
+                    tasks.setFailed(task.item.id, error);
+                    notifyFailed(task.item, error);
+                    notifyQueue();
+                    break;
+                }
                 SearchResult item = task.item;
                 try {
                     notifyQueue();
@@ -135,7 +158,7 @@ public final class DownloadQueueManager {
         } catch (Exception ignored) {
         } finally {
             running.set(false);
-            if (tasks.nextPending() != null && NetworkUtil.canDownload(context, settings.getBoolean("allow_mobile_download", false))) kick();
+            if (!isPaused() && tasks.nextPending() != null && NetworkUtil.canDownload(context, settings.getBoolean("allow_mobile_download", false))) kick();
         }
     }
 
