@@ -10,9 +10,12 @@ import com.yausername.ffmpeg.FFmpeg;
 import com.yausername.youtubedl_android.YoutubeDL;
 import com.yausername.youtubedl_android.YoutubeDLRequest;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -24,9 +27,18 @@ public final class YoutubeRepository {
         void onProgress(float percent, String line);
     }
 
+    public enum SearchSource {
+        MUSIC_FIRST,
+        YOUTUBE_MUSIC,
+        YOUTUBE
+    }
+
     private static final long UPDATE_INTERVAL_MS = 6L * 60L * 60L * 1000L;
     private static final String PREFS = "engine_prefs";
     private static final String KEY_LAST_UPDATE = "last_nightly_update";
+    public static final String SETTINGS_PREFS = "settings";
+    public static final String KEY_SEARCH_SOURCE = "search_source";
+    public static final String KEY_RECENT_SEARCHES = "recent_searches";
 
     private final Context appContext;
 
@@ -54,12 +66,58 @@ public final class YoutubeRepository {
     }
 
     public List<SearchResult> search(String query) throws Exception {
-        YoutubeDLRequest request = new YoutubeDLRequest("ytsearch25:" + query);
+        String normalized = query == null ? "" : query.trim();
+        if (normalized.isEmpty()) return new ArrayList<>();
+        saveRecentSearch(normalized);
+
+        SharedPreferences settings = appContext.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE);
+        String source = settings.getString(KEY_SEARCH_SOURCE, "music_first");
+        if ("youtube_music".equals(source)) return searchYoutubeMusicSongs(normalized, 30);
+        if ("youtube".equals(source)) return searchYoutube(normalized, 30);
+        return searchMusicFirst(normalized, 30);
+    }
+
+    private List<SearchResult> searchMusicFirst(String query, int limit) throws Exception {
+        List<SearchResult> merged = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        Exception musicError = null;
+
+        try {
+            appendUnique(merged, seen, searchYoutubeMusicSongs(query, limit), limit);
+        } catch (Exception e) {
+            musicError = e;
+        }
+
+        if (merged.size() < limit) {
+            try {
+                appendUnique(merged, seen, searchYoutube(query, limit), limit);
+            } catch (Exception e) {
+                if (merged.isEmpty() && musicError != null) throw musicError;
+                if (merged.isEmpty()) throw e;
+            }
+        }
+        if (merged.isEmpty() && musicError != null) throw musicError;
+        return merged;
+    }
+
+    public List<SearchResult> searchYoutubeMusicSongs(String query, int limit) throws Exception {
+        String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
+        String url = "https://music.youtube.com/search?q=" + encoded + "#songs";
+        return MusicRanker.rank(executeFlatSearch(url, limit), query);
+    }
+
+    public List<SearchResult> searchYoutube(String query, int limit) throws Exception {
+        return MusicRanker.rank(executeFlatSearch("ytsearch" + limit + ":" + query, limit), query);
+    }
+
+    private List<SearchResult> executeFlatSearch(String target, int limit) throws Exception {
+        YoutubeDLRequest request = new YoutubeDLRequest(target);
         request.addOption("--flat-playlist");
         request.addOption("--dump-json");
         request.addOption("--skip-download");
         request.addOption("--no-warnings");
         request.addOption("--ignore-errors");
+        request.addOption("--playlist-items", "1:" + Math.max(1, limit));
         request.addOption("--remote-components", "ejs:github");
 
         String out = YoutubeDL.getInstance().execute(request).getOut();
@@ -73,19 +131,46 @@ public final class YoutubeRepository {
                 JSONObject o = new JSONObject(line);
                 String id = o.optString("id");
                 if (id.isEmpty() || seen.contains(id)) continue;
+                String webpage = firstNonEmpty(o.optString("webpage_url"), o.optString("url"));
+                if (webpage.isEmpty() || !webpage.startsWith("http")) webpage = "https://www.youtube.com/watch?v=" + id;
+                if (!webpage.contains("watch?v=") && id.length() != 11) continue;
                 seen.add(id);
 
                 String title = o.optString("title", "제목 없음");
-                String channel = firstNonEmpty(o.optString("channel"), o.optString("uploader"), "YouTube");
-                String webpage = o.optString("webpage_url");
-                if (webpage.isEmpty()) webpage = "https://www.youtube.com/watch?v=" + id;
+                String channel = firstNonEmpty(o.optString("channel"), o.optString("uploader"), o.optString("artist"), "YouTube");
                 long duration = Math.round(o.optDouble("duration", 0));
                 String thumbnail = o.optString("thumbnail");
                 if (thumbnail == null || thumbnail.trim().isEmpty()) thumbnail = ArtworkLoader.fallbackUrl(id);
                 results.add(new SearchResult(id, title, channel, webpage, duration, thumbnail, 0, ""));
-            } catch (Exception ignored) { }
+                if (results.size() >= limit) break;
+            } catch (Exception ignored) {
+            }
         }
-        return MusicRanker.rank(results, query);
+        return results;
+    }
+
+    private static void appendUnique(List<SearchResult> out, Set<String> seen, List<SearchResult> items, int limit) {
+        for (SearchResult item : items) {
+            if (item == null || item.id == null || !seen.add(item.id)) continue;
+            out.add(item);
+            if (out.size() >= limit) break;
+        }
+    }
+
+    private void saveRecentSearch(String query) {
+        try {
+            SharedPreferences settings = appContext.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE);
+            JSONArray old = new JSONArray(settings.getString(KEY_RECENT_SEARCHES, "[]"));
+            JSONArray next = new JSONArray();
+            next.put(query);
+            for (int i = 0; i < old.length() && next.length() < 8; i++) {
+                String value = old.optString(i).trim();
+                if (value.isEmpty() || value.equalsIgnoreCase(query)) continue;
+                next.put(value);
+            }
+            settings.edit().putString(KEY_RECENT_SEARCHES, next.toString()).apply();
+        } catch (Exception ignored) {
+        }
     }
 
     public File downloadAudio(SearchResult item, ProgressListener listener) throws Exception {
@@ -101,9 +186,9 @@ public final class YoutubeRepository {
         }
 
         Exception lastError = null;
-
         try {
-            File result = downloadAttempt(item, dir, listener, "default", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", false, "default");
+            File result = downloadAttempt(item, dir, listener, null,
+                    "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", false, "default");
             downloadSubtitlesBestEffort(item, dir);
             return result;
         } catch (Exception e) {
@@ -112,7 +197,8 @@ public final class YoutubeRepository {
         }
 
         try {
-            File result = downloadAttempt(item, dir, listener, "web_embedded", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", false, "embedded");
+            File result = downloadAttempt(item, dir, listener, "web_embedded",
+                    "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", false, "embedded");
             downloadSubtitlesBestEffort(item, dir);
             return result;
         } catch (Exception e) {
@@ -149,7 +235,9 @@ public final class YoutubeRepository {
         request.addOption("--no-mtime");
         request.addOption("--no-warnings");
         request.addOption("--remote-components", "ejs:github");
-        request.addOption("--extractor-args", "youtube:player_client=" + playerClient);
+        if (playerClient != null && !playerClient.isEmpty()) {
+            request.addOption("--extractor-args", "youtube:player_client=" + playerClient);
+        }
         request.addOption("--retries", "5");
         request.addOption("--fragment-retries", "5");
         request.addOption("--socket-timeout", "20");
@@ -258,6 +346,6 @@ public final class YoutubeRepository {
 
     private static String firstNonEmpty(String... values) {
         for (String value : values) if (value != null && !value.trim().isEmpty()) return value;
-        return "YouTube";
+        return "";
     }
 }
