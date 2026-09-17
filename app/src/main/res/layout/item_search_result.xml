@@ -2,17 +2,20 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="7dp"
-    android:background="@drawable/bg_card"
+    android:layout_marginBottom="8dp"
+    android:background="@drawable/bg_smart_card"
     android:gravity="center_vertical"
-    android:minHeight="76dp"
+    android:minHeight="82dp"
     android:orientation="horizontal"
-    android:padding="10dp">
+    android:paddingLeft="10dp"
+    android:paddingTop="10dp"
+    android:paddingRight="10dp"
+    android:paddingBottom="10dp">
 
     <ImageView
         android:id="@+id/ivCover"
-        android:layout_width="54dp"
-        android:layout_height="54dp"
+        android:layout_width="58dp"
+        android:layout_height="58dp"
         android:background="@drawable/bg_search"
         android:clipToOutline="true"
         android:contentDescription="앨범 아트"
@@ -22,10 +25,9 @@
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="11dp"
+        android:layout_marginStart="12dp"
         android:layout_weight="1"
         android:orientation="vertical">
-
         <TextView
             android:id="@+id/tvTitle"
             android:layout_width="match_parent"
@@ -35,7 +37,6 @@
             android:textColor="@color/text_primary"
             android:textSize="15sp"
             android:textStyle="bold" />
-
         <TextView
             android:id="@+id/tvMeta"
             android:layout_width="match_parent"
@@ -44,22 +45,21 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/muted"
-            android:textSize="12sp" />
-
+            android:textSize="11sp" />
         <TextView
             android:id="@+id/tvBadge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="5dp"
             android:textColor="@color/success"
-            android:textSize="11sp"
+            android:textSize="10sp"
             android:textStyle="bold" />
     </LinearLayout>
 
     <ProgressBar
         android:id="@+id/progressDownload"
         style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="48dp"
+        android:layout_width="52dp"
         android:layout_height="18dp"
         android:max="100"
         android:visibility="gone" />
@@ -67,11 +67,13 @@
     <TextView
         android:id="@+id/tvAction"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:padding="8dp"
+        android:layout_height="38dp"
+        android:background="@drawable/bg_nav_active"
+        android:gravity="center"
+        android:minWidth="52dp"
+        android:paddingHorizontal="12dp"
         android:text="저장"
         android:textColor="@color/text_primary"
-        android:textSize="12sp"
+        android:textSize="11sp"
         android:textStyle="bold" />
-
 </LinearLayout>
