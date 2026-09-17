@@ -10,10 +10,12 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class DownloadTaskStore {
     private static final String PREFS = "download_tasks";
     private static final String KEY_ITEMS = "items";
+    private static final AtomicBoolean RECOVERY_DONE = new AtomicBoolean(false);
     private final Context context;
     private final SharedPreferences prefs;
 
@@ -36,7 +38,7 @@ public final class DownloadTaskStore {
     public DownloadTaskStore(Context context) {
         this.context = context.getApplicationContext();
         prefs = this.context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        recoverInterrupted();
+        if (RECOVERY_DONE.compareAndSet(false, true)) recoverInterrupted();
     }
 
     public synchronized boolean enqueue(SearchResult item) {
