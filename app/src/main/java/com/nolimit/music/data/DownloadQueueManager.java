@@ -63,6 +63,14 @@ public final class DownloadQueueManager {
             notifyCompleted(existing);
             return false;
         }
+        if (existing != null && existing.sourceUrl != null && !existing.sourceUrl.isEmpty()
+                && (item.url == null || item.url.isEmpty() || item.url.contains("youtube.com/watch?v=" + item.id))) {
+            String thumb = existing.thumbnailUrl == null || existing.thumbnailUrl.isEmpty() ? item.thumbnail : existing.thumbnailUrl;
+            item = new SearchResult(existing.id, existing.title, existing.artist, existing.sourceUrl,
+                    existing.durationSeconds, thumb, item.score,
+                    (existing.sourceName == null || existing.sourceName.isEmpty() ? item.badge : existing.sourceName + " · 복원"),
+                    existing.album);
+        }
         boolean added = tasks.enqueue(item);
         notifyQueue();
         kick();
