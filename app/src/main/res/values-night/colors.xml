@@ -2,18 +2,24 @@
 <resources>
     <color name="black">#0B0B0C</color>
     <color name="white">#FFFFFF</color>
-    <color name="app_bg">#0B0B0C</color>
-    <color name="surface">#171719</color>
-    <color name="surface_2">#242429</color>
-    <color name="text_primary">#FFFFFF</color>
-    <color name="muted">#A8A8B0</color>
-    <color name="accent">#FFFFFF</color>
-    <color name="nav_surface">#B317171A</color>
-    <color name="nav_border">#30FFFFFF</color>
-    <color name="nav_active">#30FFFFFF</color>
-    <color name="nav_icon">#FFFFFF</color>
-    <color name="widget_surface">#D917171A</color>
+    <color name="app_bg">#0D0D10</color>
+    <color name="surface">#17171C</color>
+    <color name="surface_2">#222229</color>
+    <color name="surface_3">#2B2C35</color>
+    <color name="text_primary">#F7F5FA</color>
+    <color name="muted">#A9A7B0</color>
+    <color name="accent">#D0BCFF</color>
+    <color name="accent_soft">#3D315B</color>
+    <color name="accent_on">#381E72</color>
+    <color name="tertiary">#EFB8C8</color>
+    <color name="nav_surface">#C917171C</color>
+    <color name="nav_border">#2AFFFFFF</color>
+    <color name="nav_active">#3D315B</color>
+    <color name="nav_icon">#F7F5FA</color>
+    <color name="widget_surface">#E617171C</color>
     <color name="widget_border">#28FFFFFF</color>
-    <color name="success">#75D28A</color>
-    <color name="danger">#FF8A8A</color>
+    <color name="success">#86D5A0</color>
+    <color name="danger">#F2B8B5</color>
+    <color name="warning">#F0C36A</color>
+    <color name="overlay_glass">#9A17171C</color>
 </resources>
