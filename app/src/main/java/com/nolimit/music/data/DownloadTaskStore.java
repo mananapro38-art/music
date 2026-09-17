@@ -25,13 +25,15 @@ public final class DownloadTaskStore {
         public final int progress;
         public final String error;
         public final long createdAt;
+        public final String targetPlaylistId;
 
-        public Task(SearchResult item, String state, int progress, String error, long createdAt) {
+        public Task(SearchResult item, String state, int progress, String error, long createdAt, String targetPlaylistId) {
             this.item = item;
             this.state = state;
             this.progress = progress;
             this.error = error == null ? "" : error;
             this.createdAt = createdAt;
+            this.targetPlaylistId = targetPlaylistId == null ? "" : targetPlaylistId;
         }
     }
 
@@ -41,12 +43,21 @@ public final class DownloadTaskStore {
         if (RECOVERY_DONE.compareAndSet(false, true)) recoverInterrupted();
     }
 
-    public synchronized boolean enqueue(SearchResult item) {
+    public synchronized boolean enqueue(SearchResult item) { return enqueue(item, ""); }
+
+    public synchronized boolean enqueue(SearchResult item, String targetPlaylistId) {
         List<Task> tasks = load();
-        for (Task t : tasks) {
-            if (t.item.id.equals(item.id) && ("pending".equals(t.state) || "running".equals(t.state))) return false;
+        for (int i = 0; i < tasks.size(); i++) {
+            Task t = tasks.get(i);
+            if (t.item.id.equals(item.id) && ("pending".equals(t.state) || "running".equals(t.state))) {
+                if (!empty(targetPlaylistId) && empty(t.targetPlaylistId)) {
+                    tasks.set(i, new Task(t.item, t.state, t.progress, t.error, t.createdAt, targetPlaylistId));
+                    save(tasks);
+                }
+                return false;
+            }
         }
-        tasks.add(new Task(item, "pending", 0, "", System.currentTimeMillis()));
+        tasks.add(new Task(item, "pending", 0, "", System.currentTimeMillis(), targetPlaylistId));
         save(tasks);
         return true;
     }
@@ -65,9 +76,9 @@ public final class DownloadTaskStore {
                 SearchResult item = new SearchResult(
                         o.optString("id"), o.optString("title"), o.optString("artist"),
                         o.optString("url"), o.optLong("duration"), o.optString("thumbnail"),
-                        0, "", o.optString("album", ""));
+                        0, o.optString("badge", ""), o.optString("album", ""));
                 out.add(new Task(item, o.optString("state", "pending"), o.optInt("progress", 0),
-                        o.optString("error", ""), o.optLong("createdAt", 0L)));
+                        o.optString("error", ""), o.optLong("createdAt", 0L), o.optString("targetPlaylistId", "")));
             }
         } catch (Exception ignored) { }
         return out;
@@ -100,7 +111,7 @@ public final class DownloadTaskStore {
         for (int i = 0; i < tasks.size(); i++) {
             Task t = tasks.get(i);
             if (t.item.id.equals(id)) {
-                tasks.set(i, new Task(t.item, state, progress, error, t.createdAt));
+                tasks.set(i, new Task(t.item, state, progress, error, t.createdAt, t.targetPlaylistId));
                 save(tasks);
                 return;
             }
@@ -113,7 +124,7 @@ public final class DownloadTaskStore {
         for (int i = 0; i < tasks.size(); i++) {
             Task t = tasks.get(i);
             if ("running".equals(t.state)) {
-                tasks.set(i, new Task(t.item, "pending", 0, "앱이 종료되어 다시 대기합니다.", t.createdAt));
+                tasks.set(i, new Task(t.item, "pending", 0, "앱이 종료되어 다시 대기합니다.", t.createdAt, t.targetPlaylistId));
                 changed = true;
             }
         }
@@ -132,13 +143,17 @@ public final class DownloadTaskStore {
                 o.put("duration", t.item.durationSeconds);
                 o.put("thumbnail", t.item.thumbnail);
                 o.put("album", t.item.album);
+                o.put("badge", t.item.badge);
                 o.put("state", t.state);
                 o.put("progress", t.progress);
                 o.put("error", t.error);
                 o.put("createdAt", t.createdAt);
+                o.put("targetPlaylistId", t.targetPlaylistId);
                 array.put(o);
             } catch (Exception ignored) { }
         }
         prefs.edit().putString(KEY_ITEMS, array.toString()).apply();
     }
+
+    private static boolean empty(String s) { return s == null || s.trim().isEmpty(); }
 }
