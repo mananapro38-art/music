@@ -16,20 +16,20 @@ import java.nio.charset.StandardCharsets;
 public final class LocalBackupStore {
     private final Context context;
 
-    public LocalBackupStore(Context context) {
-        this.context = context.getApplicationContext();
-    }
+    public LocalBackupStore(Context context) { this.context = context.getApplicationContext(); }
 
     public void exportTo(Uri uri) throws Exception {
         SharedPreferences library = context.getSharedPreferences("library", Context.MODE_PRIVATE);
         SharedPreferences playlists = context.getSharedPreferences("playlists", Context.MODE_PRIVATE);
         SharedPreferences settings = context.getSharedPreferences("settings", Context.MODE_PRIVATE);
         SharedPreferences history = context.getSharedPreferences("history", Context.MODE_PRIVATE);
+        SharedPreferences smart = context.getSharedPreferences("smart_playlists", Context.MODE_PRIVATE);
         JSONObject root = new JSONObject();
-        root.put("backupVersion", 3);
+        root.put("backupVersion", 4);
         root.put("library", new JSONArray(library.getString("tracks", "[]")));
         root.put("playlists", new JSONArray(playlists.getString("items", "[]")));
         root.put("history", new JSONArray(history.getString("items", "[]")));
+        root.put("smartPlaylists", new JSONArray(smart.getString("rules", "[]")));
         JSONObject s = new JSONObject();
         s.put("theme", settings.getString("theme", "dark"));
         s.put("autoplay", settings.getBoolean("autoplay", true));
@@ -38,13 +38,16 @@ public final class LocalBackupStore {
         s.put("smoothTransitionMs", settings.getInt("smooth_transition_ms", 0));
         s.put("autoBackup", settings.getBoolean("auto_backup", true));
         s.put("searchSource", settings.getString("search_source", "music_first"));
+        s.put("filterOfficial", settings.getBoolean(YoutubeRepository.KEY_FILTER_OFFICIAL, false));
+        s.put("filterExcludeLive", settings.getBoolean(YoutubeRepository.KEY_FILTER_EXCLUDE_LIVE, true));
+        s.put("filterExcludeCover", settings.getBoolean(YoutubeRepository.KEY_FILTER_EXCLUDE_COVER, true));
+        s.put("filterIncludeRemix", settings.getBoolean(YoutubeRepository.KEY_FILTER_INCLUDE_REMIX, false));
         s.put("shuffle", settings.getBoolean("shuffle", false));
         s.put("repeatMode", settings.getInt("repeat_mode", 0));
         root.put("settings", s);
         try (OutputStream out = context.getContentResolver().openOutputStream(uri, "wt")) {
             if (out == null) throw new IllegalStateException("백업 파일을 열 수 없습니다.");
-            out.write(root.toString(2).getBytes(StandardCharsets.UTF_8));
-            out.flush();
+            out.write(root.toString(2).getBytes(StandardCharsets.UTF_8)); out.flush();
         }
     }
 
@@ -53,27 +56,19 @@ public final class LocalBackupStore {
         try (InputStream in = context.getContentResolver().openInputStream(uri)) {
             if (in == null) throw new IllegalStateException("백업 파일을 읽을 수 없습니다.");
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) raw.append(line);
+                String line; while ((line = reader.readLine()) != null) raw.append(line);
             }
         }
-
         JSONObject root = new JSONObject(raw.toString());
         JSONArray library = root.optJSONArray("library");
         JSONArray playlists = root.optJSONArray("playlists");
         if (library == null || playlists == null) throw new IllegalArgumentException("No Limit Music 백업 파일이 아닙니다.");
-
-        context.getSharedPreferences("library", Context.MODE_PRIVATE).edit()
-                .putString("tracks", library.toString()).commit();
-        context.getSharedPreferences("playlists", Context.MODE_PRIVATE).edit()
-                .putString("items", playlists.toString()).commit();
-
+        context.getSharedPreferences("library", Context.MODE_PRIVATE).edit().putString("tracks", library.toString()).commit();
+        context.getSharedPreferences("playlists", Context.MODE_PRIVATE).edit().putString("items", playlists.toString()).commit();
         JSONArray history = root.optJSONArray("history");
-        if (history != null) {
-            context.getSharedPreferences("history", Context.MODE_PRIVATE).edit()
-                    .putString("items", history.toString()).commit();
-        }
-
+        if (history != null) context.getSharedPreferences("history", Context.MODE_PRIVATE).edit().putString("items", history.toString()).commit();
+        JSONArray smart = root.optJSONArray("smartPlaylists");
+        if (smart != null) context.getSharedPreferences("smart_playlists", Context.MODE_PRIVATE).edit().putString("rules", smart.toString()).commit();
         JSONObject s = root.optJSONObject("settings");
         if (s != null) {
             SharedPreferences.Editor e = context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit();
@@ -84,14 +79,14 @@ public final class LocalBackupStore {
             if (s.has("smoothTransitionMs")) e.putInt("smooth_transition_ms", s.optInt("smoothTransitionMs", 0));
             if (s.has("autoBackup")) e.putBoolean("auto_backup", s.optBoolean("autoBackup", true));
             if (s.has("searchSource")) e.putString("search_source", s.optString("searchSource", "music_first"));
+            if (s.has("filterOfficial")) e.putBoolean(YoutubeRepository.KEY_FILTER_OFFICIAL, s.optBoolean("filterOfficial", false));
+            if (s.has("filterExcludeLive")) e.putBoolean(YoutubeRepository.KEY_FILTER_EXCLUDE_LIVE, s.optBoolean("filterExcludeLive", true));
+            if (s.has("filterExcludeCover")) e.putBoolean(YoutubeRepository.KEY_FILTER_EXCLUDE_COVER, s.optBoolean("filterExcludeCover", true));
+            if (s.has("filterIncludeRemix")) e.putBoolean(YoutubeRepository.KEY_FILTER_INCLUDE_REMIX, s.optBoolean("filterIncludeRemix", false));
             if (s.has("shuffle")) e.putBoolean("shuffle", s.optBoolean("shuffle", false));
             if (s.has("repeatMode")) e.putInt("repeat_mode", s.optInt("repeatMode", 0));
             e.commit();
         }
-
-        // If the app was reinstalled, private playback paths from the backup no longer exist.
-        // Rehydrate them from the durable Music/No Limit Music mirror when permission is available.
-        try { new LibraryStore(context).importSharedMusic(); }
-        catch (Exception ignored) { }
+        try { new LibraryStore(context).importSharedMusic(); } catch (Exception ignored) { }
     }
 }
