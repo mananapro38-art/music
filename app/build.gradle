@@ -13,8 +13,8 @@ android {
         applicationId 'com.nolimit.music'
         minSdk 26
         targetSdk 36
-        versionCode 8
-        versionName '0.7.0'
+        versionCode 9
+        versionName '1.0.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 
@@ -31,15 +31,11 @@ android {
 
     buildTypes {
         debug {
-            if (nlmKeystorePath != null && !nlmKeystorePath.trim().isEmpty()) {
-                signingConfig signingConfigs.stable
-            }
+            if (nlmKeystorePath != null && !nlmKeystorePath.trim().isEmpty()) signingConfig signingConfigs.stable
         }
         release {
             minifyEnabled false
-            if (nlmKeystorePath != null && !nlmKeystorePath.trim().isEmpty()) {
-                signingConfig signingConfigs.stable
-            }
+            if (nlmKeystorePath != null && !nlmKeystorePath.trim().isEmpty()) signingConfig signingConfigs.stable
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -50,9 +46,7 @@ android {
     }
 
     packagingOptions {
-        resources {
-            excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE*', 'META-INF/NOTICE*']
-        }
+        resources { excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE*', 'META-INF/NOTICE*'] }
     }
 }
 
