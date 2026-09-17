@@ -14,6 +14,7 @@ import com.nolimit.music.model.Track;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -51,14 +52,13 @@ public final class TrackStorage {
         boolean ok = false;
         try (InputStream in = new FileInputStream(source); OutputStream out = resolver.openOutputStream(uri, "w")) {
             if (out == null) throw new IllegalStateException("공용 음악 파일을 열 수 없습니다.");
-            byte[] buffer = new byte[128 * 1024];
-            int read;
-            while ((read = in.read(buffer)) >= 0) out.write(buffer, 0, read);
-            out.flush(); ok = true;
+            copy(in, out);
+            ok = true;
         } finally {
             if (!ok) resolver.delete(uri, null, null);
         }
-        ContentValues done = new ContentValues(); done.put(MediaStore.Audio.Media.IS_PENDING, 0);
+        ContentValues done = new ContentValues();
+        done.put(MediaStore.Audio.Media.IS_PENDING, 0);
         resolver.update(uri, done, null, null);
         return uri.toString();
     }
@@ -67,7 +67,8 @@ public final class TrackStorage {
         if (track == null || track.path == null || track.path.startsWith("content://")) return;
         File f = new File(track.path);
         if (!f.exists()) return;
-        try { publish(context, f, track.id, track.title, track.artist, track.album, track.durationSeconds); } catch (Exception ignored) { }
+        try { publish(context, f, track.id, track.title, track.artist, track.album, track.durationSeconds); }
+        catch (Exception ignored) { }
     }
 
     public static boolean exists(Context context, String path) {
@@ -85,7 +86,10 @@ public final class TrackStorage {
 
     public static void delete(Context context, String path) {
         if (path == null || path.isEmpty()) return;
-        try { if (path.startsWith("content://")) context.getContentResolver().delete(Uri.parse(path), null, null); else new File(path).delete(); } catch (Exception ignored) { }
+        try {
+            if (path.startsWith("content://")) context.getContentResolver().delete(Uri.parse(path), null, null);
+            else new File(path).delete();
+        } catch (Exception ignored) { }
     }
 
     public static void deleteSharedById(Context context, String id) {
@@ -97,7 +101,10 @@ public final class TrackStorage {
             if (c == null) return;
             List<Uri> uris = new ArrayList<>();
             while (c.moveToNext()) uris.add(ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, c.getLong(0)));
-            for (Uri uri : uris) try { context.getContentResolver().delete(uri, null, null); } catch (Exception ignored) { }
+            for (Uri uri : uris) {
+                try { context.getContentResolver().delete(uri, null, null); }
+                catch (Exception ignored) { }
+            }
         } catch (Exception ignored) { }
     }
 
@@ -105,9 +112,16 @@ public final class TrackStorage {
         List<Track> out = new ArrayList<>();
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return out;
         Uri collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL);
-        String[] projection = {MediaStore.Audio.Media._ID, MediaStore.Audio.Media.DISPLAY_NAME, MediaStore.Audio.Media.TITLE,
-                MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM, MediaStore.Audio.Media.DURATION,
-                MediaStore.Audio.Media.DATE_ADDED, MediaStore.Audio.Media.RELATIVE_PATH};
+        String[] projection = {
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.DISPLAY_NAME,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.DATE_ADDED,
+                MediaStore.Audio.Media.RELATIVE_PATH
+        };
         String selection = MediaStore.Audio.Media.RELATIVE_PATH + " LIKE ?";
         try (Cursor cursor = context.getContentResolver().query(collection, projection, selection,
                 new String[]{"%No Limit Music%"}, MediaStore.Audio.Media.DATE_ADDED + " DESC")) {
@@ -120,18 +134,72 @@ public final class TrackStorage {
             int durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION);
             int addedCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED);
             while (cursor.moveToNext()) {
-                long rowId = cursor.getLong(idCol); String name = cursor.getString(nameCol); String videoId = parseVideoId(name);
+                long rowId = cursor.getLong(idCol);
+                String name = cursor.getString(nameCol);
+                String videoId = parseVideoId(name);
                 if (videoId.isEmpty()) continue;
-                Uri uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, rowId);
+                Uri mediaUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, rowId);
+                String localPath = restorePrivateCopy(context, mediaUri, videoId, name);
+                if (localPath.isEmpty()) continue;
                 String title = nvl(cursor.getString(titleCol), stripName(name));
                 String artist = nvl(cursor.getString(artistCol), "YouTube");
                 String album = nvl(cursor.getString(albumCol), "싱글/기타");
                 long duration = Math.max(0L, cursor.getLong(durationCol) / 1000L);
                 long added = Math.max(0L, cursor.getLong(addedCol) * 1000L);
-                out.add(new Track(videoId, title, artist, uri.toString(), duration, added, false, 0, 0L, "", album, AutoTagger.infer(title, artist)));
+                out.add(new Track(videoId, title, artist, localPath, duration, added,
+                        false, 0, 0L, "", album, AutoTagger.infer(title, artist)));
             }
         } catch (Exception ignored) { }
         return out;
+    }
+
+    private static String restorePrivateCopy(Context context, Uri source, String videoId, String displayName) {
+        File base = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC);
+        if (base == null) base = context.getFilesDir();
+        File dir = new File(base, "NoLimitMusic");
+        if (!dir.exists() && !dir.mkdirs()) return "";
+        File existing = findLocalAudio(dir, videoId);
+        if (existing != null && existing.length() > 0) return existing.getAbsolutePath();
+        String ext = extension(displayName);
+        if (ext.isEmpty()) ext = "m4a";
+        File target = new File(dir, videoId + "." + ext);
+        File temp = new File(dir, videoId + ".restore.part");
+        try (InputStream in = context.getContentResolver().openInputStream(source);
+             OutputStream out = new FileOutputStream(temp)) {
+            if (in == null) return "";
+            copy(in, out);
+            if (target.exists()) target.delete();
+            if (!temp.renameTo(target)) {
+                try (InputStream again = new FileInputStream(temp); OutputStream finalOut = new FileOutputStream(target)) {
+                    copy(again, finalOut);
+                }
+                temp.delete();
+            }
+            return target.exists() && target.length() > 0 ? target.getAbsolutePath() : "";
+        } catch (Exception e) {
+            temp.delete();
+            return "";
+        }
+    }
+
+    private static File findLocalAudio(File dir, String id) {
+        File[] files = dir.listFiles((d, name) -> {
+            String n = name.toLowerCase(Locale.ROOT);
+            return name.startsWith(id + ".")
+                    && !n.endsWith(".part") && !n.endsWith(".ytdl")
+                    && !n.endsWith(".vtt") && !n.endsWith(".srt")
+                    && !n.endsWith(".ass") && !n.endsWith(".lrc")
+                    && !n.endsWith(".json") && !n.endsWith(".jpg")
+                    && !n.endsWith(".jpeg") && !n.endsWith(".png") && !n.endsWith(".webp");
+        });
+        return files == null || files.length == 0 ? null : files[0];
+    }
+
+    private static void copy(InputStream in, OutputStream out) throws Exception {
+        byte[] buffer = new byte[128 * 1024];
+        int read;
+        while ((read = in.read(buffer)) >= 0) out.write(buffer, 0, read);
+        out.flush();
     }
 
     private static Uri findByDisplayName(ContentResolver resolver, String displayName) {
@@ -139,15 +207,48 @@ public final class TrackStorage {
         try (Cursor cursor = resolver.query(collection, new String[]{MediaStore.Audio.Media._ID},
                 MediaStore.Audio.Media.DISPLAY_NAME + "=? AND " + MediaStore.Audio.Media.RELATIVE_PATH + " LIKE ?",
                 new String[]{displayName, "%No Limit Music%"}, null)) {
-            if (cursor != null && cursor.moveToFirst()) return ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, cursor.getLong(0));
+            if (cursor != null && cursor.moveToFirst()) {
+                return ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, cursor.getLong(0));
+            }
         } catch (Exception ignored) { }
         return null;
     }
 
-    private static String parseVideoId(String displayName) { if (displayName == null) return ""; int split = displayName.indexOf("__"); return split <= 0 ? "" : displayName.substring(0, split); }
-    private static String stripName(String displayName) { if (displayName == null) return "제목 없음"; int split = displayName.indexOf("__"); String s = split >= 0 ? displayName.substring(split + 2) : displayName; int dot = s.lastIndexOf('.'); return dot > 0 ? s.substring(0, dot) : s; }
-    private static String safe(String s) { if (s == null) return "track"; String cleaned = s.replaceAll("[\\\\/:*?\"<>|]", "_").replaceAll("\\s+", " ").trim(); if (cleaned.length() > 80) cleaned = cleaned.substring(0, 80).trim(); return cleaned.isEmpty() ? "track" : cleaned; }
-    private static String extension(String name) { int dot = name == null ? -1 : name.lastIndexOf('.'); return dot >= 0 ? name.substring(dot + 1).toLowerCase(Locale.ROOT) : ""; }
-    private static String mime(String ext) { if ("m4a".equals(ext) || "mp4".equals(ext)) return "audio/mp4"; if ("webm".equals(ext)) return "audio/webm"; if ("mp3".equals(ext)) return "audio/mpeg"; if ("opus".equals(ext)) return "audio/ogg"; return "audio/*"; }
-    private static String nvl(String value, String fallback) { return value == null || value.trim().isEmpty() || "<unknown>".equals(value) ? fallback : value; }
+    private static String parseVideoId(String displayName) {
+        if (displayName == null) return "";
+        int split = displayName.indexOf("__");
+        return split <= 0 ? "" : displayName.substring(0, split);
+    }
+
+    private static String stripName(String displayName) {
+        if (displayName == null) return "제목 없음";
+        int split = displayName.indexOf("__");
+        String s = split >= 0 ? displayName.substring(split + 2) : displayName;
+        int dot = s.lastIndexOf('.');
+        return dot > 0 ? s.substring(0, dot) : s;
+    }
+
+    private static String safe(String s) {
+        if (s == null) return "track";
+        String cleaned = s.replaceAll("[\\\\/:*?\"<>|]", "_").replaceAll("\\s+", " ").trim();
+        if (cleaned.length() > 80) cleaned = cleaned.substring(0, 80).trim();
+        return cleaned.isEmpty() ? "track" : cleaned;
+    }
+
+    private static String extension(String name) {
+        int dot = name == null ? -1 : name.lastIndexOf('.');
+        return dot >= 0 ? name.substring(dot + 1).toLowerCase(Locale.ROOT) : "";
+    }
+
+    private static String mime(String ext) {
+        if ("m4a".equals(ext) || "mp4".equals(ext)) return "audio/mp4";
+        if ("webm".equals(ext)) return "audio/webm";
+        if ("mp3".equals(ext)) return "audio/mpeg";
+        if ("opus".equals(ext)) return "audio/ogg";
+        return "audio/*";
+    }
+
+    private static String nvl(String value, String fallback) {
+        return value == null || value.trim().isEmpty() || "<unknown>".equals(value) ? fallback : value;
+    }
 }
