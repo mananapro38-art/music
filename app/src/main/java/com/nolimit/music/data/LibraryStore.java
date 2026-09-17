@@ -38,7 +38,8 @@ public final class LibraryStore {
                         o.optLong("addedAt"), o.optBoolean("liked", false), o.optInt("playCount", 0),
                         o.optLong("lastPlayedAt", 0L), o.optString("thumbnail", ""),
                         o.optString("album", AutoTagger.inferAlbum(title, artist)),
-                        o.optString("tags", AutoTagger.infer(title, artist))));
+                        o.optString("tags", AutoTagger.infer(title, artist)),
+                        o.optString("sourceUrl", ""), o.optString("sourceName", "")));
             }
         } catch (Exception ignored) { }
         return result;
@@ -55,9 +56,11 @@ public final class LibraryStore {
             String thumbnail = empty(track.thumbnailUrl) ? previous.thumbnailUrl : track.thumbnailUrl;
             String album = empty(track.album) ? previous.album : track.album;
             String tags = empty(track.tags) ? previous.tags : track.tags;
+            String sourceUrl = empty(track.sourceUrl) ? previous.sourceUrl : track.sourceUrl;
+            String sourceName = empty(track.sourceName) ? previous.sourceName : track.sourceName;
             track = new Track(track.id, track.title, track.artist, track.path, track.durationSeconds,
                     previous.addedAt > 0 ? previous.addedAt : track.addedAt, previous.liked, previous.playCount,
-                    previous.lastPlayedAt, thumbnail, album, tags);
+                    previous.lastPlayedAt, thumbnail, album, tags, sourceUrl, sourceName);
         }
         if (empty(track.album) || empty(track.tags)) {
             track = track.withMetadata(empty(track.album) ? AutoTagger.inferAlbum(track.title, track.artist) : track.album,
@@ -93,7 +96,8 @@ public final class LibraryStore {
                         existing.set(i, new Track(old.id, old.title, old.artist, t.path,
                                 old.durationSeconds > 0 ? old.durationSeconds : t.durationSeconds,
                                 old.addedAt > 0 ? old.addedAt : t.addedAt, old.liked, old.playCount, old.lastPlayedAt,
-                                old.thumbnailUrl, empty(old.album) ? t.album : old.album, empty(old.tags) ? t.tags : old.tags));
+                                old.thumbnailUrl, empty(old.album) ? t.album : old.album, empty(old.tags) ? t.tags : old.tags,
+                                old.sourceUrl, old.sourceName));
                     }
                 }
             }
@@ -124,6 +128,18 @@ public final class LibraryStore {
     }
 
     private static List<Track> take(List<Track> tracks,int limit){ if(limit<=0||tracks.size()<=limit)return new ArrayList<>(tracks); return new ArrayList<>(tracks.subList(0,limit)); }
-    private void save(List<Track> tracks){ JSONArray array=new JSONArray(); for(Track t:tracks){ JSONObject o=new JSONObject(); try{ o.put("id",t.id);o.put("title",t.title);o.put("artist",t.artist);o.put("path",t.path);o.put("duration",t.durationSeconds);o.put("addedAt",t.addedAt);o.put("liked",t.liked);o.put("playCount",t.playCount);o.put("lastPlayedAt",t.lastPlayedAt);o.put("thumbnail",t.thumbnailUrl==null?"":t.thumbnailUrl);o.put("album",t.album==null?"":t.album);o.put("tags",t.tags==null?"":t.tags);array.put(o);}catch(Exception ignored){} } prefs.edit().putString(KEY_TRACKS,array.toString()).apply(); }
+    private void save(List<Track> tracks){
+        JSONArray array=new JSONArray();
+        for(Track t:tracks){
+            JSONObject o=new JSONObject();
+            try{
+                o.put("id",t.id);o.put("title",t.title);o.put("artist",t.artist);o.put("path",t.path);o.put("duration",t.durationSeconds);
+                o.put("addedAt",t.addedAt);o.put("liked",t.liked);o.put("playCount",t.playCount);o.put("lastPlayedAt",t.lastPlayedAt);
+                o.put("thumbnail",t.thumbnailUrl==null?"":t.thumbnailUrl);o.put("album",t.album==null?"":t.album);o.put("tags",t.tags==null?"":t.tags);
+                o.put("sourceUrl",t.sourceUrl==null?"":t.sourceUrl);o.put("sourceName",t.sourceName==null?"":t.sourceName);array.put(o);
+            }catch(Exception ignored){}
+        }
+        prefs.edit().putString(KEY_TRACKS,array.toString()).apply();
+    }
     private static boolean empty(String s){return s==null||s.trim().isEmpty();}
 }
