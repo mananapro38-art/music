@@ -2,6 +2,9 @@ plugins {
     id 'com.android.application'
 }
 
+def nlmKeystorePath = System.getenv('NLM_KEYSTORE_PATH')
+def nlmKeystorePassword = System.getenv('NLM_KEYSTORE_PASSWORD')
+
 android {
     namespace 'com.nolimit.music'
     compileSdk 36
@@ -15,9 +18,28 @@ android {
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 
+    signingConfigs {
+        stable {
+            if (nlmKeystorePath != null && !nlmKeystorePath.trim().isEmpty()) {
+                storeFile file(nlmKeystorePath)
+                storePassword nlmKeystorePassword
+                keyAlias 'nolimitmusic'
+                keyPassword nlmKeystorePassword
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            if (nlmKeystorePath != null && !nlmKeystorePath.trim().isEmpty()) {
+                signingConfig signingConfigs.stable
+            }
+        }
         release {
             minifyEnabled false
+            if (nlmKeystorePath != null && !nlmKeystorePath.trim().isEmpty()) {
+                signingConfig signingConfigs.stable
+            }
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
