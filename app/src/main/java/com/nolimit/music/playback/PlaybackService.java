@@ -11,6 +11,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
@@ -22,6 +23,8 @@ import com.nolimit.music.model.Track;
 import com.nolimit.music.util.ArtworkLoader;
 import com.nolimit.music.widget.LargeMusicWidgetProvider;
 import com.nolimit.music.widget.MusicWidgetProvider;
+
+import org.json.JSONArray;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -35,15 +38,18 @@ public final class PlaybackService extends MediaSessionService {
     private LibraryStore library;
     private HistoryStore history;
     private SharedPreferences settings;
+    private SharedPreferences playbackState;
     private String listeningTrackId = "";
     private long lastListeningTick = 0L;
     private long fadeInStartedAt = 0L;
+    private long lastQueuePersistAt = 0L;
 
     private final Runnable serviceTicker = new Runnable() {
         @Override public void run() {
             tickListeningTime();
             tickSleepTimer();
             tickFade();
+            tickPersistedPlayback();
             handler.postDelayed(this, 250L);
         }
     };
@@ -53,9 +59,11 @@ public final class PlaybackService extends MediaSessionService {
         library = new LibraryStore(this);
         history = new HistoryStore(this);
         settings = getSharedPreferences("settings", Context.MODE_PRIVATE);
+        playbackState = getSharedPreferences("playback_state", Context.MODE_PRIVATE);
         player = new ExoPlayer.Builder(this).build();
         player.setRepeatMode(settings.getInt("repeat_mode", Player.REPEAT_MODE_OFF));
         player.setShuffleModeEnabled(settings.getBoolean("shuffle", false));
+        restoreQueue();
         player.addListener(new Player.Listener() {
             @Override public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
                 flushListeningTime();
@@ -73,32 +81,89 @@ public final class PlaybackService extends MediaSessionService {
                         player.setVolume(0f);
                     }
                 }
+                persistQueue();
                 updateWidgetState();
             }
 
             @Override public void onIsPlayingChanged(boolean isPlaying) {
                 if (isPlaying) lastListeningTick = System.currentTimeMillis(); else flushListeningTime();
+                persistQueue();
                 updateWidgetState();
             }
 
-            @Override public void onPlaybackStateChanged(int playbackState) {
-                if (playbackState == Player.STATE_ENDED) maybeSmartContinue();
+            @Override public void onTimelineChanged(Timeline timeline, int reason) {
+                persistQueue();
+            }
+
+            @Override public void onPlaybackStateChanged(int playbackStateValue) {
+                if (playbackStateValue == Player.STATE_ENDED) {
+                    if (settings.getBoolean("sleep_at_queue_end", false)) {
+                        settings.edit().putBoolean("sleep_at_queue_end", false).putLong("sleep_deadline", 0L).apply();
+                        player.pause();
+                    } else {
+                        maybeSmartContinue();
+                    }
+                }
+                persistQueue();
                 updateWidgetState();
             }
 
             @Override public void onRepeatModeChanged(int repeatMode) {
                 settings.edit().putInt("repeat_mode", repeatMode).apply();
+                persistQueue();
                 updateWidgetState();
             }
 
             @Override public void onShuffleModeEnabledChanged(boolean shuffleModeEnabled) {
                 settings.edit().putBoolean("shuffle", shuffleModeEnabled).apply();
+                persistQueue();
                 updateWidgetState();
             }
         });
         session = new MediaSession.Builder(this, player).build();
         updateWidgetState();
         handler.post(serviceTicker);
+    }
+
+    private void restoreQueue() {
+        try {
+            JSONArray ids = new JSONArray(playbackState.getString("queue_ids", "[]"));
+            String currentId = playbackState.getString("current_id", "");
+            long position = Math.max(0L, playbackState.getLong("position_ms", 0L));
+            List<MediaItem> items = new ArrayList<>();
+            int start = 0;
+            for (int i = 0; i < ids.length(); i++) {
+                String id = ids.optString(i, "");
+                Track track = library.find(id);
+                if (track == null || !TrackStorage.exists(this, track.path)) continue;
+                if (id.equals(currentId)) start = items.size();
+                items.add(toMediaItem(track));
+            }
+            if (!items.isEmpty()) {
+                player.setMediaItems(items, Math.min(start, items.size() - 1), position);
+                player.prepare();
+            }
+        } catch (Exception ignored) { }
+    }
+
+    private void persistQueue() {
+        if (player == null || playbackState == null) return;
+        try {
+            JSONArray ids = new JSONArray();
+            for (int i = 0; i < player.getMediaItemCount(); i++) ids.put(player.getMediaItemAt(i).mediaId);
+            MediaItem current = player.getCurrentMediaItem();
+            playbackState.edit()
+                    .putString("queue_ids", ids.toString())
+                    .putString("current_id", current == null ? "" : current.mediaId)
+                    .putLong("position_ms", Math.max(0L, player.getCurrentPosition()))
+                    .putBoolean("was_playing", player.isPlaying())
+                    .apply();
+            lastQueuePersistAt = System.currentTimeMillis();
+        } catch (Exception ignored) { }
+    }
+
+    private void tickPersistedPlayback() {
+        if (System.currentTimeMillis() - lastQueuePersistAt >= 5000L) persistQueue();
     }
 
     private void maybeSmartContinue() {
@@ -117,6 +182,7 @@ public final class PlaybackService extends MediaSessionService {
         }
         if (next.isEmpty()) return;
         player.addMediaItems(next);
+        persistQueue();
         if (player.getPlaybackState() == Player.STATE_ENDED) {
             player.seekToNextMediaItem();
             player.prepare();
@@ -149,7 +215,8 @@ public final class PlaybackService extends MediaSessionService {
         long deadline = settings.getLong("sleep_deadline", 0L);
         if (deadline > 0 && System.currentTimeMillis() >= deadline) {
             if (player != null) player.pause();
-            settings.edit().putLong("sleep_deadline", 0L).apply();
+            settings.edit().putLong("sleep_deadline", 0L).putBoolean("sleep_at_queue_end", false).apply();
+            persistQueue();
             updateWidgetState();
         }
     }
@@ -221,11 +288,16 @@ public final class PlaybackService extends MediaSessionService {
     }
 
     @Nullable @Override public MediaSession onGetSession(MediaSession.ControllerInfo controllerInfo) { return session; }
-    @Override public void onTaskRemoved(@Nullable android.content.Intent rootIntent) { super.onTaskRemoved(rootIntent); }
+
+    @Override public void onTaskRemoved(@Nullable android.content.Intent rootIntent) {
+        persistQueue();
+        super.onTaskRemoved(rootIntent);
+    }
 
     @Override public void onDestroy() {
         handler.removeCallbacks(serviceTicker);
         flushListeningTime();
+        persistQueue();
         if (session != null) session.release();
         if (player != null) player.release();
         session = null;
