@@ -8,6 +8,7 @@ import com.nolimit.music.model.Track;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -65,6 +66,20 @@ public final class LibraryStore {
         tracks.add(0, track);
         save(tracks);
         TrackStorage.mirrorBestEffort(context, track);
+    }
+
+    public synchronized int migrateAllToShared() {
+        int copied = 0;
+        for (Track track : load()) {
+            if (track.path == null || track.path.startsWith("content://")) continue;
+            File source = new File(track.path);
+            if (!source.exists()) continue;
+            try {
+                TrackStorage.publish(context, source, track.id, track.title, track.artist, track.album, track.durationSeconds);
+                copied++;
+            } catch (Exception ignored) { }
+        }
+        return copied;
     }
 
     public synchronized int importSharedMusic() {
