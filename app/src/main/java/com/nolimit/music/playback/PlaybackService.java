@@ -20,6 +20,7 @@ import com.nolimit.music.data.LibraryStore;
 import com.nolimit.music.data.TrackStorage;
 import com.nolimit.music.model.Track;
 import com.nolimit.music.util.ArtworkLoader;
+import com.nolimit.music.widget.LargeMusicWidgetProvider;
 import com.nolimit.music.widget.MusicWidgetProvider;
 
 import java.util.ArrayList;
@@ -74,19 +75,25 @@ public final class PlaybackService extends MediaSessionService {
                 }
                 updateWidgetState();
             }
+
             @Override public void onIsPlayingChanged(boolean isPlaying) {
                 if (isPlaying) lastListeningTick = System.currentTimeMillis(); else flushListeningTime();
                 updateWidgetState();
             }
+
             @Override public void onPlaybackStateChanged(int playbackState) {
                 if (playbackState == Player.STATE_ENDED) maybeSmartContinue();
                 updateWidgetState();
             }
+
             @Override public void onRepeatModeChanged(int repeatMode) {
-                settings.edit().putInt("repeat_mode", repeatMode).apply(); updateWidgetState();
+                settings.edit().putInt("repeat_mode", repeatMode).apply();
+                updateWidgetState();
             }
+
             @Override public void onShuffleModeEnabledChanged(boolean shuffleModeEnabled) {
-                settings.edit().putBoolean("shuffle", shuffleModeEnabled).apply(); updateWidgetState();
+                settings.edit().putBoolean("shuffle", shuffleModeEnabled).apply();
+                updateWidgetState();
             }
         });
         session = new MediaSession.Builder(this, player).build();
@@ -125,10 +132,17 @@ public final class PlaybackService extends MediaSessionService {
     }
 
     private MediaItem toMediaItem(Track t) {
-        MediaMetadata.Builder md = new MediaMetadata.Builder().setTitle(t.title).setArtist(t.artist).setAlbumTitle(t.album);
+        MediaMetadata.Builder md = new MediaMetadata.Builder()
+                .setTitle(t.title)
+                .setArtist(t.artist)
+                .setAlbumTitle(t.album);
         Uri art = ArtworkLoader.bestArtworkUri(this, t.id, t.thumbnailUrl);
         if (art != null) md.setArtworkUri(art);
-        return new MediaItem.Builder().setMediaId(t.id).setUri(TrackStorage.uri(t.path)).setMediaMetadata(md.build()).build();
+        return new MediaItem.Builder()
+                .setMediaId(t.id)
+                .setUri(TrackStorage.uri(t.path))
+                .setMediaMetadata(md.build())
+                .build();
     }
 
     private void tickSleepTimer() {
@@ -145,7 +159,7 @@ public final class PlaybackService extends MediaSessionService {
         long now = System.currentTimeMillis();
         if (lastListeningTick <= 0) lastListeningTick = now;
         long delta = now - lastListeningTick;
-        if (delta >= 1000L) {
+        if (delta >= 5000L) {
             history.addListeningTime(listeningTrackId, delta);
             lastListeningTick = now;
         }
@@ -154,7 +168,7 @@ public final class PlaybackService extends MediaSessionService {
     private void flushListeningTime() {
         if (listeningTrackId.isEmpty() || lastListeningTick <= 0) return;
         long delta = System.currentTimeMillis() - lastListeningTick;
-        if (delta > 0 && delta < 60000L) history.addListeningTime(listeningTrackId, delta);
+        if (delta > 0 && delta < 120000L) history.addListeningTime(listeningTrackId, delta);
         lastListeningTick = 0L;
     }
 
@@ -163,7 +177,10 @@ public final class PlaybackService extends MediaSessionService {
     private void tickFade() {
         if (player == null || !player.isPlaying()) return;
         int fade = smoothFadeMs();
-        if (fade <= 0) { if (player.getVolume() != 1f) player.setVolume(1f); return; }
+        if (fade <= 0) {
+            if (player.getVolume() != 1f) player.setVolume(1f);
+            return;
+        }
         long now = System.currentTimeMillis();
         if (fadeInStartedAt > 0 && now - fadeInStartedAt < fade) {
             player.setVolume(Math.max(0f, Math.min(1f, (float) (now - fadeInStartedAt) / fade)));
@@ -184,24 +201,35 @@ public final class PlaybackService extends MediaSessionService {
     private void updateWidgetState() {
         if (player == null) return;
         MediaMetadata metadata = player.getMediaMetadata();
+        MediaItem current = player.getCurrentMediaItem();
+        String mediaId = current == null || current.mediaId == null ? "" : current.mediaId;
         String title = metadata.title == null ? "No Limit Music" : metadata.title.toString();
         String artist = metadata.artist == null ? "재생할 곡을 선택하세요" : metadata.artist.toString();
         String artwork = metadata.artworkUri == null ? "" : metadata.artworkUri.toString();
         SharedPreferences prefs = getSharedPreferences("widget_state", Context.MODE_PRIVATE);
-        prefs.edit().putString("title", title).putString("artist", artist).putString("artwork", artwork)
-                .putBoolean("playing", player.isPlaying()).putBoolean("shuffle", player.getShuffleModeEnabled())
-                .putInt("repeat", player.getRepeatMode()).apply();
+        prefs.edit()
+                .putString("mediaId", mediaId)
+                .putString("title", title)
+                .putString("artist", artist)
+                .putString("artwork", artwork)
+                .putBoolean("playing", player.isPlaying())
+                .putBoolean("shuffle", player.getShuffleModeEnabled())
+                .putInt("repeat", player.getRepeatMode())
+                .apply();
         MusicWidgetProvider.updateAll(this);
-        com.nolimit.music.widget.LargeMusicWidgetProvider.updateAll(this);
+        LargeMusicWidgetProvider.updateAll(this);
     }
 
     @Nullable @Override public MediaSession onGetSession(MediaSession.ControllerInfo controllerInfo) { return session; }
     @Override public void onTaskRemoved(@Nullable android.content.Intent rootIntent) { super.onTaskRemoved(rootIntent); }
+
     @Override public void onDestroy() {
         handler.removeCallbacks(serviceTicker);
         flushListeningTime();
         if (session != null) session.release();
         if (player != null) player.release();
-        session = null; player = null; super.onDestroy();
+        session = null;
+        player = null;
+        super.onDestroy();
     }
 }
