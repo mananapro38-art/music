@@ -11,6 +11,7 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      NLM_KEYSTORE_PASSWORD: ${{ secrets.NLM_SIGNING_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -22,20 +23,25 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Restore stable test signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: no-limit-music-debug-keystore-v1
-          fail-on-cache-miss: true
-
-      - name: Verify signing key exists
+      - name: Require stable signing secret
         run: |
-          test -s "$HOME/.android/debug.keystore"
+          if [ -z "$NLM_KEYSTORE_PASSWORD" ]; then
+            echo "NLM_SIGNING_PASSWORD repository secret is required for update-safe builds."
+            exit 1
+          fi
+
+      - name: Decrypt stable signing key
+        run: |
+          base64 -d signing/no-limit-music-release.jks.enc.b64 > "$RUNNER_TEMP/no-limit-music-release.jks.enc"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in "$RUNNER_TEMP/no-limit-music-release.jks.enc" \
+            -out "$RUNNER_TEMP/no-limit-music-release.jks" \
+            -pass env:NLM_KEYSTORE_PASSWORD
           keytool -list -v \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android \
-            -alias androiddebugkey | grep -E 'SHA256:'
+            -keystore "$RUNNER_TEMP/no-limit-music-release.jks" \
+            -storepass "$NLM_KEYSTORE_PASSWORD" \
+            -alias nolimitmusic | grep -E 'SHA256:'
+          echo "NLM_KEYSTORE_PATH=$RUNNER_TEMP/no-limit-music-release.jks" >> "$GITHUB_ENV"
 
       - name: Install Android SDK packages
         run: |
@@ -54,19 +60,14 @@ jobs:
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
 
-      - name: Verify APK signing certificate
+      - name: Verify stable APK signing certificate
         run: |
-          KEY_CERT=$(keytool -list -v \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android \
-            -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          EXPECTED="FD91CC8FE34718E18680B80427851794E9CDFEC371B3DF5A5EED7CA9DF26C59E"
           APK_CERT=$("$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --print-certs \
             app/build/outputs/apk/debug/app-debug.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr '[:lower:]' '[:upper:]')
-          echo "Keystore certificate: $KEY_CERT"
+          echo "Expected certificate: $EXPECTED"
           echo "APK certificate:      $APK_CERT"
-          test -n "$KEY_CERT"
-          test -n "$APK_CERT"
-          test "$KEY_CERT" = "$APK_CERT"
+          test "$EXPECTED" = "$APK_CERT"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
