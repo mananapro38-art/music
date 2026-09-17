@@ -39,14 +39,11 @@ import com.nolimit.music.util.ArtworkLoader;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -131,12 +128,12 @@ public final class FeatureHubActivity extends AppCompatActivity {
         content.addView(label("곡", 15, true));
         for (Track track : tracks) content.addView(trackRow(track, tracks));
 
-        renderGroups("아티스트", group(tracks, "artist"), tracks);
-        renderGroups("앨범", group(tracks, "album"), tracks);
-        renderGroups("자동 태그", group(tracks, "tag"), tracks);
+        renderGroups("아티스트", group(tracks, "artist"));
+        renderGroups("앨범", group(tracks, "album"));
+        renderGroups("자동 태그", group(tracks, "tag"));
     }
 
-    private void renderGroups(String title, Map<String, List<Track>> groups, List<Track> all) {
+    private void renderGroups(String title, Map<String, List<Track>> groups) {
         TextView heading = label(title, 17, true);
         LinearLayout.LayoutParams hp = new LinearLayout.LayoutParams(-1, -2);
         hp.topMargin = dp(24);
@@ -169,7 +166,7 @@ public final class FeatureHubActivity extends AppCompatActivity {
         TextView title = text(track.title, 14, true);
         TextView meta = text(track.artist + " · " + (track.album.isEmpty() ? "싱글/기타" : track.album)
                 + " · " + track.playCount + "회", 11, false);
-        TextView tags = text(track.tags == null ? "" : track.tags.replace(',', ' · '), 10, false);
+        TextView tags = text(track.tags == null ? "" : track.tags.replace(",", " · "), 10, false);
         box.addView(title);
         box.addView(meta);
         box.addView(tags);
@@ -219,25 +216,26 @@ public final class FeatureHubActivity extends AppCompatActivity {
     private void renderDownloads() {
         content.removeAllViews();
         content.addView(sectionTitle("다운로드 관리자"));
-        TextView hint = text("대기열은 한 곡씩 순서대로 저장됩니다. 실패한 항목은 다시 대기시킬 수 있습니다.", 11, false);
-        content.addView(hint);
+        content.addView(text("대기/진행/실패/완료 상태를 확인하고 실패 항목을 다시 대기시킬 수 있습니다.", 11, false));
         Button clear = button("완료 항목 정리", v -> { downloads.clearFinished(); renderDownloads(); });
         content.addView(clear);
         for (DownloadTaskStore.Task task : downloads.load()) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.VERTICAL);
-            row.setPadding(dp(14), dp(10), dp(14), dp(10));
-            row.setBackgroundResource(R.drawable.bg_smart_card);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2); lp.topMargin = dp(7); row.setLayoutParams(lp);
-            row.addView(text(task.item.title, 14, true));
+            LinearLayout item = new LinearLayout(this);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setPadding(dp(14), dp(10), dp(14), dp(10));
+            item.setBackgroundResource(R.drawable.bg_smart_card);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+            lp.topMargin = dp(7);
+            item.setLayoutParams(lp);
+            item.addView(text(task.item.title, 14, true));
             String state = stateLabel(task.state) + ("running".equals(task.state) ? " " + task.progress + "%" : "");
             if (!task.error.isEmpty()) state += " · " + task.error;
-            row.addView(text(state, 11, false));
+            item.addView(text(state, 11, false));
             LinearLayout buttons = row();
             if ("failed".equals(task.state)) buttons.addView(button("재시도", v -> { downloads.retry(task.item.id); renderDownloads(); }));
             if (!"running".equals(task.state)) buttons.addView(button("목록에서 제거", v -> { downloads.remove(task.item.id); renderDownloads(); }));
-            row.addView(buttons);
-            content.addView(row);
+            item.addView(buttons);
+            content.addView(item);
         }
     }
 
@@ -264,8 +262,7 @@ public final class FeatureHubActivity extends AppCompatActivity {
             HistoryStore.Entry e = entries.get(i);
             content.addView(card(e.title + "\n" + e.artist + " · " + df.format(new Date(e.playedAt))));
         }
-        Button clear = button("재생 기록 지우기", v -> { history.clear(); renderHistory(); });
-        content.addView(clear);
+        content.addView(button("재생 기록 지우기", v -> { history.clear(); renderHistory(); }));
     }
 
     private void renderSmartRules() {
@@ -311,7 +308,9 @@ public final class FeatureHubActivity extends AppCompatActivity {
             return;
         }
         content.removeAllViews();
-        TextView back = card("‹  조건 다시 설정"); back.setOnClickListener(v -> renderSmartRules()); content.addView(back);
+        TextView back = card("‹  조건 다시 설정");
+        back.setOnClickListener(v -> renderSmartRules());
+        content.addView(back);
         content.addView(sectionTitle("조건 결과 · " + matches.size() + "곡"));
         for (Track t : matches) content.addView(trackRow(t, matches));
     }
@@ -339,18 +338,75 @@ public final class FeatureHubActivity extends AppCompatActivity {
         TextView tab = card(name);
         tab.setGravity(Gravity.CENTER);
         tab.setOnClickListener(v -> action.run());
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, dp(40)); lp.setMarginEnd(dp(7));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, dp(40));
+        lp.setMarginEnd(dp(7));
         tabs.addView(tab, lp);
     }
 
-    private TextView sectionTitle(String s) { TextView v = text(s, 21, true); v.setPadding(0, dp(8), 0, dp(10)); return v; }
-    private TextView label(String s, int sp, boolean bold) { TextView v = text(s, sp, bold); v.setPadding(0, dp(12), 0, dp(5)); return v; }
-    private TextView card(String s) { TextView v = text(s, 13, true); v.setPadding(dp(14), dp(11), dp(14), dp(11)); v.setBackgroundResource(R.drawable.bg_smart_card); LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2); lp.topMargin = dp(6); v.setLayoutParams(lp); return v; }
-    private TextView text(String s, int sp, boolean bold) { TextView v = new TextView(this); v.setText(s); v.setTextSize(sp); v.setTextColor(ContextCompat.getColor(this, bold ? R.color.text_primary : R.color.muted)); if (bold) v.setTypeface(v.getTypeface(), Typeface.BOLD); return v; }
-    private LinearLayout row() { LinearLayout l = new LinearLayout(this); l.setOrientation(LinearLayout.HORIZONTAL); l.setGravity(Gravity.CENTER_VERTICAL); return l; }
-    private Button button(String text, View.OnClickListener click) { Button b = new Button(this); b.setText(text); b.setOnClickListener(click); return b; }
-    private EditText input(String hint, boolean number) { EditText e = new EditText(this); e.setHint(hint); e.setTextColor(ContextCompat.getColor(this, R.color.text_primary)); e.setHintTextColor(ContextCompat.getColor(this, R.color.muted)); e.setBackgroundResource(R.drawable.bg_search); e.setPadding(dp(14), 0, dp(14), 0); if (number) e.setInputType(InputType.TYPE_CLASS_NUMBER); LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(50)); lp.topMargin = dp(7); e.setLayoutParams(lp); return e; }
-    private int intValue(EditText e, int fallback) { try { return Integer.parseInt(e.getText().toString().trim()); } catch (Exception ignored) { return fallback; } }
+    private TextView sectionTitle(String s) {
+        TextView v = text(s, 21, true);
+        v.setPadding(0, dp(8), 0, dp(10));
+        return v;
+    }
+
+    private TextView label(String s, int sp, boolean bold) {
+        TextView v = text(s, sp, bold);
+        v.setPadding(0, dp(12), 0, dp(5));
+        return v;
+    }
+
+    private TextView card(String s) {
+        TextView v = text(s, 13, true);
+        v.setPadding(dp(14), dp(11), dp(14), dp(11));
+        v.setBackgroundResource(R.drawable.bg_smart_card);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = dp(6);
+        v.setLayoutParams(lp);
+        return v;
+    }
+
+    private TextView text(String s, int sp, boolean bold) {
+        TextView v = new TextView(this);
+        v.setText(s);
+        v.setTextSize(sp);
+        v.setTextColor(ContextCompat.getColor(this, bold ? R.color.text_primary : R.color.muted));
+        if (bold) v.setTypeface(v.getTypeface(), Typeface.BOLD);
+        return v;
+    }
+
+    private LinearLayout row() {
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.HORIZONTAL);
+        l.setGravity(Gravity.CENTER_VERTICAL);
+        return l;
+    }
+
+    private Button button(String text, View.OnClickListener click) {
+        Button b = new Button(this);
+        b.setText(text);
+        b.setOnClickListener(click);
+        return b;
+    }
+
+    private EditText input(String hint, boolean number) {
+        EditText e = new EditText(this);
+        e.setHint(hint);
+        e.setTextColor(ContextCompat.getColor(this, R.color.text_primary));
+        e.setHintTextColor(ContextCompat.getColor(this, R.color.muted));
+        e.setBackgroundResource(R.drawable.bg_search);
+        e.setPadding(dp(14), 0, dp(14), 0);
+        if (number) e.setInputType(InputType.TYPE_CLASS_NUMBER);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(50));
+        lp.topMargin = dp(7);
+        e.setLayoutParams(lp);
+        return e;
+    }
+
+    private int intValue(EditText e, int fallback) {
+        try { return Integer.parseInt(e.getText().toString().trim()); }
+        catch (Exception ignored) { return fallback; }
+    }
+
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
     private void toast(String s) { android.widget.Toast.makeText(this, s, android.widget.Toast.LENGTH_SHORT).show(); }
     private static String stateLabel(String s) { if ("running".equals(s)) return "다운로드 중"; if ("done".equals(s)) return "완료"; if ("failed".equals(s)) return "실패"; return "대기 중"; }
