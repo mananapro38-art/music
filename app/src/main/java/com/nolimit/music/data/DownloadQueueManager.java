@@ -74,8 +74,11 @@ public final class DownloadQueueManager {
         for (Track track : library.load()) {
             if (TrackStorage.exists(context, track.path)) continue;
             String thumb = track.thumbnailUrl == null || track.thumbnailUrl.isEmpty() ? ArtworkLoader.fallbackUrl(track.id) : track.thumbnailUrl;
+            String sourceUrl = track.sourceUrl == null || track.sourceUrl.isEmpty()
+                    ? "https://www.youtube.com/watch?v=" + track.id : track.sourceUrl;
             SearchResult item = new SearchResult(track.id, track.title, track.artist,
-                    "https://www.youtube.com/watch?v=" + track.id, track.durationSeconds, thumb, 0, "복원", track.album);
+                    sourceUrl, track.durationSeconds, thumb, 0,
+                    (track.sourceName == null || track.sourceName.isEmpty() ? "복원" : track.sourceName + " · 복원"), track.album);
             if (tasks.enqueue(item)) count++;
         }
         notifyQueue();
@@ -100,8 +103,6 @@ public final class DownloadQueueManager {
                 if (!NetworkUtil.canDownload(context, allowMobile)) break;
                 SearchResult item = task.item;
                 try {
-                    // YoutubeRepository owns the persisted pending/running/done transition.
-                    // The queue manager only serializes tasks and broadcasts UI progress.
                     notifyQueue();
                     File file = youtube.downloadAudio(item, (percent, line) -> {
                         int p = Math.max(0, Math.min(100, Math.round(percent)));
@@ -109,7 +110,8 @@ public final class DownloadQueueManager {
                     });
                     ArtworkLoader.cacheToDisk(context, item.id, item.thumbnail);
                     Track track = new Track(item.id, item.title, item.channel, file.getAbsolutePath(), item.durationSeconds,
-                            System.currentTimeMillis(), false, 0, 0L, item.thumbnail, item.album, AutoTagger.infer(item.title, item.channel));
+                            System.currentTimeMillis(), false, 0, 0L, item.thumbnail, item.album,
+                            AutoTagger.infer(item.title, item.channel), item.url, sourceName(item));
                     library.upsert(track);
                     Track saved = library.find(item.id);
                     if (saved != null) track = saved;
@@ -127,6 +129,16 @@ public final class DownloadQueueManager {
             running.set(false);
             if (tasks.nextPending() != null && NetworkUtil.canDownload(context, settings.getBoolean("allow_mobile_download", false))) kick();
         }
+    }
+
+    private static String sourceName(SearchResult item) {
+        String id = item.id == null ? "" : item.id;
+        String url = item.url == null ? "" : item.url.toLowerCase();
+        if (id.startsWith("sc_") || url.contains("soundcloud.com")) return "SoundCloud";
+        if (id.startsWith("au_") || url.startsWith("audius:") || url.contains("audius.co")) return "Audius";
+        if (id.startsWith("bc_") || url.contains("bandcamp.com")) return "Bandcamp";
+        if (url.contains("music.youtube.com")) return "YouTube Music";
+        return "YouTube";
     }
 
     private void notifyQueue() { main.post(() -> { for (Listener l : listeners) l.onQueueChanged(); }); }
