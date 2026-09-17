@@ -21,6 +21,18 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NoLimitMusic">
 
+        <activity
+            android:name=".PlaylistScreenshotImportActivity"
+            android:exported="true"
+            android:label="플레이리스트 캡처 가져오기"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
+
         <activity android:name=".FeatureHubActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".QueueActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PlayerActivity" android:exported="false" android:screenOrientation="portrait" />
