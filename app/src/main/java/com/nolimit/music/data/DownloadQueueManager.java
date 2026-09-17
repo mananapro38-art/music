@@ -60,10 +60,16 @@ public final class DownloadQueueManager {
     public void addListener(Listener listener) { if (listener != null) listeners.addIfAbsent(listener); }
     public void removeListener(Listener listener) { listeners.remove(listener); }
 
-    public boolean enqueue(SearchResult item) {
+    public boolean enqueue(SearchResult item) { return enqueue(item, ""); }
+
+    public boolean enqueue(SearchResult item, String targetPlaylistId) {
         if (item == null || item.id == null || item.id.isEmpty()) return false;
         Track existing = library.find(item.id);
         if (existing != null && TrackStorage.exists(context, existing.path)) {
+            playlists.addTrack(PlaylistStore.DEFAULT_ID, existing.id);
+            if (targetPlaylistId != null && !targetPlaylistId.isEmpty() && !PlaylistStore.DEFAULT_ID.equals(targetPlaylistId)) {
+                playlists.addTrack(targetPlaylistId, existing.id);
+            }
             notifyCompleted(existing);
             return false;
         }
@@ -75,7 +81,7 @@ public final class DownloadQueueManager {
                     (existing.sourceName == null || existing.sourceName.isEmpty() ? item.badge : existing.sourceName + " · 복원"),
                     existing.album);
         }
-        boolean added = tasks.enqueue(item);
+        boolean added = tasks.enqueue(item, targetPlaylistId);
         notifyQueue();
         kick();
         return added;
@@ -147,6 +153,10 @@ public final class DownloadQueueManager {
                     Track saved = library.find(item.id);
                     if (saved != null) track = saved;
                     playlists.addTrack(PlaylistStore.DEFAULT_ID, track.id);
+                    if (task.targetPlaylistId != null && !task.targetPlaylistId.isEmpty()
+                            && !PlaylistStore.DEFAULT_ID.equals(task.targetPlaylistId)) {
+                        playlists.addTrack(task.targetPlaylistId, track.id);
+                    }
                     notifyCompleted(track);
                     notifyQueue();
                 } catch (Exception e) {
