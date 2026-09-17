@@ -49,13 +49,22 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
     }
 
     private void buildUi() {
-        addView(label("검색 소스", 12, true));
+        LinearLayout sourceHeader = new LinearLayout(getContext());
+        sourceHeader.setOrientation(HORIZONTAL); sourceHeader.setGravity(Gravity.CENTER_VERTICAL);
+        sourceHeader.addView(label("검색 플랫폼", 12, true), new LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        sourceHeader.addView(label("통합 검색 지원", 10, false));
+        addView(sourceHeader);
+
         sourceGroup = new ChipGroup(getContext());
         sourceGroup.setSingleSelection(true);
         sourceGroup.setSelectionRequired(true);
+        sourceGroup.setSingleLine(true);
         sourceGroup.setChipSpacingHorizontal(dp(6));
+        HorizontalScrollView sourceScroll = new HorizontalScrollView(getContext());
+        sourceScroll.setHorizontalScrollBarEnabled(false); sourceScroll.setFillViewport(false);
+        sourceScroll.addView(sourceGroup, new HorizontalScrollView.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         LayoutParams sourceLp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT); sourceLp.topMargin = dp(6);
-        addView(sourceGroup, sourceLp);
+        addView(sourceScroll, sourceLp);
         renderSourceButtons();
 
         TextView filterTitle = label("음악 결과 필터", 12, true);
@@ -66,6 +75,8 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
         filterGroup.setChipSpacingHorizontal(dp(6));
         filterGroup.setChipSpacingVertical(dp(4));
         addView(filterGroup);
+        TextView filterHint = label("‘공식 음원만’ 판별은 YouTube 계열에 적용되며 SoundCloud·Audius·Bandcamp는 직접 업로드 결과를 유지합니다.", 9, false);
+        LayoutParams fh = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT); fh.topMargin = dp(3); addView(filterHint, fh);
         renderFilterButtons();
 
         LinearLayout popularHeader = new LinearLayout(getContext()); popularHeader.setOrientation(HORIZONTAL); popularHeader.setGravity(Gravity.CENTER_VERTICAL);
@@ -93,7 +104,13 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
     private void renderSourceButtons() {
         sourceGroup.removeAllViews();
         String selected = prefs.getString(YoutubeRepository.KEY_SEARCH_SOURCE, "music_first");
-        addSourceChip("음악 우선", "music_first", selected); addSourceChip("YouTube Music", "youtube_music", selected); addSourceChip("YouTube", "youtube", selected);
+        addSourceChip("음악 우선", "music_first", selected);
+        addSourceChip("통합", "all", selected);
+        addSourceChip("YouTube Music", "youtube_music", selected);
+        addSourceChip("YouTube", "youtube", selected);
+        addSourceChip("SoundCloud", "soundcloud", selected);
+        addSourceChip("Audius", "audius", selected);
+        addSourceChip("Bandcamp", "bandcamp", selected);
     }
 
     private void addSourceChip(String label, String value, String selected) {
