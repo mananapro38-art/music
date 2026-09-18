@@ -136,8 +136,17 @@ public final class YoutubeRepository {
 
     public List<SearchResult> searchYoutubeMusicSongs(String query, int limit) throws Exception {
         String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
-        String url = "https://music.youtube.com/search?q=" + encoded + "#songs";
-        return tagResults(MusicRanker.rank(executeFlatSearch(url, limit), query), "", "YouTube Music");
+        // Explicit Songs section parameter from yt-dlp's YoutubeMusicSearchURLIE.
+        // Using a real query parameter is more robust through Android URL/request wrappers than #songs.
+        String songsParam = "EgWKAQIIAWoKEAoQAxAEEAkQBQ%3D%3D";
+        String filteredUrl = "https://music.youtube.com/search?q=" + encoded + "&sp=" + songsParam;
+        List<SearchResult> results = executeFlatSearch(filteredUrl, limit);
+        if (results.isEmpty()) {
+            // Keep the extractor's documented fragment form as a compatibility fallback.
+            results = executeFlatSearch("https://music.youtube.com/search?q=" + encoded + "#songs", limit);
+        }
+        if (results.isEmpty()) throw new IllegalStateException("YouTube Music 곡 검색 결과를 불러오지 못했습니다.");
+        return tagResults(MusicRanker.rank(results, query), "", "YouTube Music");
     }
 
     public List<SearchResult> searchYoutube(String query, int limit) throws Exception {
