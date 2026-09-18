@@ -1,25 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#0B0B0C</color>
+    <color name="black">#000000</color>
     <color name="white">#FFFFFF</color>
-    <color name="app_bg">#0D0D10</color>
-    <color name="surface">#17171C</color>
-    <color name="surface_2">#222229</color>
-    <color name="surface_3">#2B2C35</color>
-    <color name="text_primary">#F7F5FA</color>
-    <color name="muted">#A9A7B0</color>
-    <color name="accent">#D0BCFF</color>
-    <color name="accent_soft">#3D315B</color>
-    <color name="accent_on">#381E72</color>
-    <color name="tertiary">#EFB8C8</color>
-    <color name="nav_surface">#C917171C</color>
-    <color name="nav_border">#2AFFFFFF</color>
-    <color name="nav_active">#3D315B</color>
-    <color name="nav_icon">#F7F5FA</color>
-    <color name="widget_surface">#E617171C</color>
-    <color name="widget_border">#28FFFFFF</color>
-    <color name="success">#86D5A0</color>
-    <color name="danger">#F2B8B5</color>
-    <color name="warning">#F0C36A</color>
-    <color name="overlay_glass">#9A17171C</color>
+    <color name="app_bg">#000000</color>
+    <color name="surface">#1C1C1E</color>
+    <color name="surface_2">#2C2C2E</color>
+    <color name="surface_3">#3A3A3C</color>
+    <color name="text_primary">#F8F8FA</color>
+    <color name="muted">#98989D</color>
+    <color name="accent">#FF375F</color>
+    <color name="accent_soft">#4A1826</color>
+    <color name="accent_on">#FFFFFF</color>
+    <color name="tertiary">#BF5AF2</color>
+    <color name="nav_surface">#C91C1C1E</color>
+    <color name="nav_border">#2EFFFFFF</color>
+    <color name="nav_active">#4A1826</color>
+    <color name="nav_icon">#FFFFFF</color>
+    <color name="widget_surface">#E61C1C1E</color>
+    <color name="widget_border">#2EFFFFFF</color>
+    <color name="success">#30D158</color>
+    <color name="danger">#FF453A</color>
+    <color name="warning">#FF9F0A</color>
+    <color name="overlay_glass">#8A1C1C1E</color>
 </resources>
