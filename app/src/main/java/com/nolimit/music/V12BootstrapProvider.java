@@ -72,7 +72,7 @@ public final class V12BootstrapProvider extends ContentProvider {
     }
 
     private void inject(Activity activity) {
-        injectImportCard(activity);
+        // v1.3 keeps the home surface intentionally sparse; legacy tools live under More/Settings.
         injectSettings(activity);
     }
 
