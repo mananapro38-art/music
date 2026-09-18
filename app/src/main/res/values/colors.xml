@@ -12,8 +12,8 @@
     <color name="accent_soft">#FFE7ED</color>
     <color name="accent_on">#FFFFFF</color>
     <color name="tertiary">#AF52DE</color>
-    <color name="nav_surface">#D9FFFFFF</color>
-    <color name="nav_border">#55FFFFFF</color>
+    <color name="nav_surface">#A3FFFFFF</color>
+    <color name="nav_border">#9AFFFFFF</color>
     <color name="nav_active">#FFE7ED</color>
     <color name="nav_icon">#1C1C1E</color>
     <color name="widget_surface">#EFFFFFFF</color>
@@ -21,5 +21,5 @@
     <color name="success">#34C759</color>
     <color name="danger">#FF3B30</color>
     <color name="warning">#FF9500</color>
-    <color name="overlay_glass">#9EFFFFFF</color>
+    <color name="overlay_glass">#33FFFFFF</color>
 </resources>
