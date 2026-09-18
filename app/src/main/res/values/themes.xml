@@ -5,7 +5,7 @@
         <item name="android:statusBarColor">@color/app_bg</item>
         <item name="android:navigationBarColor">@color/app_bg</item>
         <item name="colorPrimary">@color/accent</item>
-        <item name="colorOnPrimary">@color/app_bg</item>
+        <item name="colorOnPrimary">@color/accent_on</item>
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/text_primary</item>
         <item name="android:windowLightStatusBar">true</item>
