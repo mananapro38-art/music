@@ -61,31 +61,40 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         TextView search = activity.findViewById(R.id.iconSearch);
         TextView library = activity.findViewById(R.id.iconPlaylist);
         TextView settings = activity.findViewById(R.id.iconSettings);
-        if (home != null) home.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_home, 0, 0);
-        if (search != null) search.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_search, 0, 0);
-        if (library != null) library.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_library, 0, 0);
-        if (settings != null) settings.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_settings, 0, 0);
+        if (home != null) home.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_home, 0, 0, 0);
+        if (search != null) search.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search, 0, 0, 0);
+        if (library != null) library.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_library, 0, 0, 0);
+        if (settings != null) settings.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_settings, 0, 0, 0);
 
         TextView searchButton = activity.findViewById(R.id.btnSearch);
         if (searchButton != null) {
             searchButton.setText("");
-            searchButton.setBackgroundResource(R.drawable.bg_nav_active);
-            searchButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_search, 0, 0);
+            searchButton.setGravity(Gravity.CENTER);
+            searchButton.setPadding(0, 0, 0, 0);
+            searchButton.setBackgroundResource(R.drawable.bg_glass_panel);
+            searchButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search, 0, 0, 0);
         }
 
         BlurTarget target = activity.findViewById(R.id.blurTarget);
-        BlurView blur = activity.findViewById(R.id.bottomBlur);
-        if (target != null && blur != null && blur.getTag() == null) {
-            try {
-                blur.setupWith(target)
-                        .setFrameClearDrawable(activity.getWindow().getDecorView().getBackground())
-                        .setBlurRadius(26f);
-                blur.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
-                blur.setClipToOutline(true);
-                blur.setTag("configured");
-            } catch (Throwable ignored) {
-                blur.setBackgroundResource(R.drawable.bg_bottom_nav);
-            }
+        BlurView bottom = activity.findViewById(R.id.bottomBlur);
+        View mini = activity.findViewById(R.id.playerBar);
+        if (target != null) {
+            configureBlur(activity, target, bottom, R.drawable.bg_bottom_nav, 28f);
+            if (mini instanceof BlurView) configureBlur(activity, target, (BlurView) mini, R.drawable.bg_glass_panel, 24f);
+        }
+    }
+
+    private void configureBlur(Activity activity, BlurTarget target, BlurView blur, int fallbackBackground, float radius) {
+        if (blur == null || blur.getTag() != null) return;
+        try {
+            blur.setupWith(target)
+                    .setFrameClearDrawable(activity.getWindow().getDecorView().getBackground())
+                    .setBlurRadius(radius);
+            blur.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
+            blur.setClipToOutline(true);
+            blur.setTag("configured");
+        } catch (Throwable ignored) {
+            blur.setBackgroundResource(fallbackBackground);
         }
     }
 
