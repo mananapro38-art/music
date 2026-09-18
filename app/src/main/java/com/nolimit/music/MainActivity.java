@@ -106,7 +106,8 @@ public final class MainActivity extends AppCompatActivity {
     private ProgressBar searchProgress;
     private TextView engineStatus, playlistCount, playlistTitle, nowPlaying, nowArtist, playPause, currentTime, totalTime;
     private TextView chartStatus, chartBrowserStatus, djStatus, recentCount, likedCount, mostPlayedCount;
-    private LinearLayout playlistFolders, playerBar;
+    private LinearLayout playlistFolders;
+    private View playerBar;
     private ImageView nowArtwork;
     private SeekBar playerSeek;
     private Spinner chartCategorySpinner, chartCountrySpinner;
@@ -256,7 +257,17 @@ public final class MainActivity extends AppCompatActivity {
     private void switchTab(String tab){hideAllSections();sectionHome.setVisibility("home".equals(tab)?View.VISIBLE:View.GONE);sectionSearch.setVisibility("search".equals(tab)?View.VISIBLE:View.GONE);sectionPlaylist.setVisibility("playlist".equals(tab)?View.VISIBLE:View.GONE);sectionSettings.setVisibility("settings".equals(tab)?View.VISIBLE:View.GONE);setNavActive(iconHome,"home".equals(tab));setNavActive(iconSearch,"search".equals(tab));setNavActive(iconPlaylist,"playlist".equals(tab));setNavActive(iconSettings,"settings".equals(tab));if("playlist".equals(tab)){renderPlaylistFolders();renderActivePlaylist();}}
     private void openCharts(){hideAllSections();sectionCharts.setVisibility(View.VISIBLE);setNavActive(iconHome,true);setNavActive(iconSearch,false);setNavActive(iconPlaylist,false);setNavActive(iconSettings,false);loadChartBrowser();}
     private void openDj(){hideAllSections();sectionDj.setVisibility(View.VISIBLE);setNavActive(iconHome,true);setNavActive(iconSearch,false);setNavActive(iconPlaylist,false);setNavActive(iconSettings,false);}
-    private void setNavActive(TextView icon,boolean active){icon.setBackgroundResource(active?R.drawable.bg_nav_active:0);icon.setAlpha(active?1f:.62f);}
+    private void setNavActive(TextView icon,boolean active){
+        icon.setBackgroundResource(active?R.drawable.bg_nav_active:0);
+        icon.setAlpha(active?1f:.58f);
+        android.graphics.drawable.Drawable[] ds=icon.getCompoundDrawables();
+        for(android.graphics.drawable.Drawable d:ds){
+            if(d!=null){
+                d=d.mutate();
+                d.setTint(ContextCompat.getColor(this,active?R.color.accent:R.color.nav_icon));
+            }
+        }
+    }
 
     private void initializeEngine(){io.execute(()->{try{youtube.init();engineReady=true;runOnUiThread(this::updateReadyStatus);}catch(Exception e){runOnUiThread(()->engineStatus.setText("엔진 준비 실패 · "+compactError(e)));}});}
     private void updateReadyStatus(){if(!engineReady||engineStatus==null)return;boolean mobile=settings.getBoolean(KEY_ALLOW_MOBILE_DOWNLOAD,false);engineStatus.setText(mobile?"음악 엔진 준비됨 · Wi‑Fi/모바일 데이터 · 다중 저장 대기열":"음악 엔진 준비됨 · Wi‑Fi에서만 저장 · 다중 저장 대기열");}
