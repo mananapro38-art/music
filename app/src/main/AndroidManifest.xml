@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:name=".NoLimitMusicApp"
@@ -26,6 +27,8 @@
             android:authorities="${applicationId}.v12bootstrap"
             android:exported="false"
             android:initOrder="100" />
+
+        <activity android:name=".MusicRecognitionActivity" android:exported="false" android:screenOrientation="portrait" />
 
         <activity
             android:name=".PlaylistScreenshotImportActivity"
