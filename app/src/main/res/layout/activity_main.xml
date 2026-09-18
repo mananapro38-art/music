@@ -138,10 +138,40 @@
                     <LinearLayout android:id="@+id/sectionSearch" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:visibility="gone">
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="검색" android:textColor="@color/text_primary" android:textSize="24sp" android:textStyle="bold" />
                         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="곡, 아티스트, 앨범을 한 번에 찾아보세요" android:textColor="@color/muted" android:textSize="11sp" />
-                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:gravity="center_vertical" android:orientation="horizontal">
-                            <EditText android:id="@+id/etSearch" android:layout_width="0dp" android:layout_height="56dp" android:layout_weight="1" android:background="@drawable/bg_search" android:hint="곡, 아티스트 또는 앨범 검색" android:imeOptions="actionSearch" android:inputType="text" android:maxLines="1" android:paddingHorizontal="16dp" android:textColor="@color/text_primary" android:textColorHint="@color/muted" android:textSize="16sp" />
-                            <Button android:id="@+id/btnSearch" android:layout_width="54dp" android:layout_height="54dp" android:layout_marginStart="8dp" android:minWidth="0dp" android:minHeight="0dp" android:text="" android:textAllCaps="false" />
-                        </LinearLayout>
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="56dp"
+                            android:layout_marginTop="14dp"
+                            android:background="@drawable/bg_search">
+                            <EditText
+                                android:id="@+id/etSearch"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:background="@android:color/transparent"
+                                android:hint="곡, 아티스트 또는 앨범 검색"
+                                android:imeOptions="actionSearch"
+                                android:inputType="text"
+                                android:maxLines="1"
+                                android:paddingLeft="18dp"
+                                android:paddingTop="0dp"
+                                android:paddingRight="58dp"
+                                android:paddingBottom="0dp"
+                                android:textColor="@color/text_primary"
+                                android:textColorHint="@color/muted"
+                                android:textSize="16sp" />
+                            <Button
+                                android:id="@+id/btnSearch"
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:layout_gravity="center_vertical|end"
+                                android:layout_marginEnd="4dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:minWidth="0dp"
+                                android:minHeight="0dp"
+                                android:padding="0dp"
+                                android:text=""
+                                android:textAllCaps="false" />
+                        </FrameLayout>
                         <com.nolimit.music.ui.SearchDiscoveryView android:layout_width="match_parent" android:layout_height="wrap_content" />
                         <ProgressBar android:id="@+id/progressSearch" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="3dp" android:layout_marginTop="4dp" android:indeterminate="true" android:visibility="gone" />
                         <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvResults" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="6dp" android:layout_weight="1" />
