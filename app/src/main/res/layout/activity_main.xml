@@ -213,7 +213,7 @@
             <com.nolimit.music.ui.PlayerCardView
                 android:id="@+id/playerBar"
                 android:layout_width="match_parent"
-                android:layout_height="88dp"
+                android:layout_height="70dp"
                 android:layout_gravity="bottom"
                 android:layout_marginLeft="18dp"
                 android:layout_marginRight="18dp"
@@ -236,7 +236,7 @@
                     <TextView android:id="@+id/btnPlayPause" android:layout_width="42dp" android:layout_height="46dp" android:background="@drawable/bg_nav_active" android:gravity="center" android:text="▶" android:textColor="@color/text_primary" android:textSize="19sp" />
                     <TextView android:id="@+id/btnNext" android:layout_width="38dp" android:layout_height="46dp" android:gravity="center" android:text="›|" android:textColor="@color/text_primary" android:textSize="18sp" />
                 </LinearLayout>
-                <LinearLayout android:layout_width="match_parent" android:layout_height="28dp" android:gravity="center_vertical" android:orientation="horizontal">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="28dp" android:gravity="center_vertical" android:orientation="horizontal" android:visibility="gone">
                     <TextView android:id="@+id/tvCurrentTime" android:layout_width="38dp" android:layout_height="wrap_content" android:gravity="center" android:text="0:00" android:textColor="@color/muted" android:textSize="9sp" />
                     <SeekBar android:id="@+id/playerSeek" android:layout_width="0dp" android:layout_height="28dp" android:layout_weight="1" android:max="1000" android:paddingStart="0dp" android:paddingEnd="0dp" />
                     <TextView android:id="@+id/tvDuration" android:layout_width="38dp" android:layout_height="wrap_content" android:gravity="center" android:text="0:00" android:textColor="@color/muted" android:textSize="9sp" />
