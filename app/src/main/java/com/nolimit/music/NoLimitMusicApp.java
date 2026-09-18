@@ -71,7 +71,7 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
             searchButton.setText("");
             searchButton.setGravity(Gravity.CENTER);
             searchButton.setPadding(0, 0, 0, 0);
-            searchButton.setBackgroundResource(R.drawable.bg_glass_panel);
+            searchButton.setBackgroundResource(android.R.color.transparent);
             searchButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search, 0, 0, 0);
         }
 
