@@ -15,6 +15,7 @@ import android.view.ViewOutlineProvider;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.widget.NestedScrollView;
@@ -43,15 +44,19 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
     @Override public void onActivityResumed(Activity activity) {
         if (!(activity instanceof MainActivity)) return;
         View playerBar = activity.findViewById(R.id.playerBar);
-        if (playerBar != null) playerBar.setOnClickListener(v -> activity.startActivity(new Intent(activity, PlayerActivity.class)));
-        setupV11Chrome(activity);
-        injectHomeHub(activity);
+        if (playerBar != null) {
+            playerBar.setBackgroundResource(R.drawable.bg_glass_panel);
+            playerBar.setOnClickListener(v -> activity.startActivity(new Intent(activity, PlayerActivity.class)));
+        }
+        setupGlassChrome(activity);
+        injectHomeActions(activity);
+        collapseHomePreview(activity);
         injectAdvancedSettings(activity);
         requestV1Permissions(activity);
         DownloadQueueManager.get(activity).kick();
     }
 
-    private void setupV11Chrome(Activity activity) {
+    private void setupGlassChrome(Activity activity) {
         TextView home = activity.findViewById(R.id.iconHome);
         TextView search = activity.findViewById(R.id.iconSearch);
         TextView library = activity.findViewById(R.id.iconPlaylist);
@@ -61,13 +66,20 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         if (library != null) library.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_library, 0, 0);
         if (settings != null) settings.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_settings, 0, 0);
 
+        TextView searchButton = activity.findViewById(R.id.btnSearch);
+        if (searchButton != null) {
+            searchButton.setText("");
+            searchButton.setBackgroundResource(R.drawable.bg_nav_active);
+            searchButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_search, 0, 0);
+        }
+
         BlurTarget target = activity.findViewById(R.id.blurTarget);
         BlurView blur = activity.findViewById(R.id.bottomBlur);
         if (target != null && blur != null && blur.getTag() == null) {
             try {
                 blur.setupWith(target)
                         .setFrameClearDrawable(activity.getWindow().getDecorView().getBackground())
-                        .setBlurRadius(18f);
+                        .setBlurRadius(26f);
                 blur.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
                 blur.setClipToOutline(true);
                 blur.setTag("configured");
@@ -77,31 +89,73 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         }
     }
 
+    private void injectHomeActions(Activity activity) {
+        NestedScrollView home = activity.findViewById(R.id.sectionHome);
+        if (home == null || home.getChildCount() == 0 || !(home.getChildAt(0) instanceof LinearLayout)) return;
+        LinearLayout container = (LinearLayout) home.getChildAt(0);
+        if (container.findViewWithTag("v13_home_actions") != null) return;
+
+        LinearLayout row = new LinearLayout(activity);
+        row.setTag("v13_home_actions");
+        row.setOrientation(LinearLayout.HORIZONTAL);
+
+        TextView recognize = actionCard(activity, "노래 찾기", R.drawable.ic_waveform);
+        recognize.setOnClickListener(v -> activity.startActivity(new Intent(activity, MusicRecognitionActivity.class)));
+        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, dp(activity, 58), 1f);
+        left.setMarginEnd(dp(activity, 5));
+        row.addView(recognize, left);
+
+        TextView more = actionCard(activity, "보관함 · 더보기", R.drawable.ic_library);
+        more.setOnClickListener(v -> showMoreSheet(activity));
+        LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(0, dp(activity, 58), 1f);
+        right.setMarginStart(dp(activity, 5));
+        row.addView(more, right);
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(activity, 58));
+        lp.topMargin = dp(activity, 12);
+        container.addView(row, Math.min(2, container.getChildCount()), lp);
+    }
+
+    private void showMoreSheet(Activity activity) {
+        String[] items = {"라이브러리+", "캡처에서 플레이리스트 가져오기", "노래 듣고 찾기", "설정"};
+        new AlertDialog.Builder(activity)
+                .setTitle("더보기")
+                .setItems(items, (dialog, which) -> {
+                    if (which == 0) activity.startActivity(new Intent(activity, FeatureHubActivity.class));
+                    else if (which == 1) activity.startActivity(new Intent(activity, PlaylistScreenshotImportActivity.class));
+                    else if (which == 2) activity.startActivity(new Intent(activity, MusicRecognitionActivity.class));
+                    else {
+                        View tab = activity.findViewById(R.id.tabSettings);
+                        if (tab != null) tab.performClick();
+                    }
+                })
+                .show();
+    }
+
+    private void collapseHomePreview(Activity activity) {
+        View list = activity.findViewById(R.id.rvCharts);
+        if (list != null) list.setVisibility(View.GONE);
+        View status = activity.findViewById(R.id.tvChartStatus);
+        if (status != null && status.getParent() instanceof View) {
+            ((View) status.getParent()).setVisibility(View.GONE);
+        }
+    }
+
     private void requestV1Permissions(Activity activity) {
         SharedPreferences settings = activity.getSharedPreferences("settings", MODE_PRIVATE);
         if (settings.getBoolean("v1_permissions_requested", false)) return;
         List<String> missing = new ArrayList<>();
         if (Build.VERSION.SDK_INT >= 33) {
-            if (ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.POST_NOTIFICATIONS);
-            if (ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.READ_MEDIA_AUDIO);
-        } else if (Build.VERSION.SDK_INT >= 23 && ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+                missing.add(Manifest.permission.POST_NOTIFICATIONS);
+            if (ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED)
+                missing.add(Manifest.permission.READ_MEDIA_AUDIO);
+        } else if (Build.VERSION.SDK_INT >= 23 &&
+                ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             missing.add(Manifest.permission.READ_EXTERNAL_STORAGE);
         }
         settings.edit().putBoolean("v1_permissions_requested", true).apply();
         if (!missing.isEmpty()) ActivityCompat.requestPermissions(activity, missing.toArray(new String[0]), 7010);
-    }
-
-    private void injectHomeHub(Activity activity) {
-        NestedScrollView home = activity.findViewById(R.id.sectionHome);
-        if (home == null || home.getChildCount() == 0 || !(home.getChildAt(0) instanceof LinearLayout)) return;
-        LinearLayout container = (LinearLayout) home.getChildAt(0);
-        if (container.findViewWithTag("v1_hub_card") != null) return;
-        TextView card = card(activity, "▦  라이브러리+\n앨범 · 아티스트 · 다운로드 · 리캡 · 동적 스마트 플리");
-        card.setTag("v1_hub_card");
-        card.setOnClickListener(v -> activity.startActivity(new Intent(activity, FeatureHubActivity.class)));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(activity, 80));
-        lp.topMargin = dp(activity, 14);
-        container.addView(card, Math.min(2, container.getChildCount()), lp);
     }
 
     private void injectAdvancedSettings(Activity activity) {
@@ -118,7 +172,14 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         titleLp.topMargin = dp(activity, 26);
         box.addView(title, titleLp);
 
+        TextView recognition = card(activity, "노래 듣고 찾기");
+        recognition.setOnClickListener(v -> activity.startActivity(new Intent(activity, MusicRecognitionActivity.class)));
+        box.addView(recognition);
+
         TextView hub = card(activity, "라이브러리+ 열기");
+        LinearLayout.LayoutParams hubLp = new LinearLayout.LayoutParams(-1, dp(activity, 52));
+        hubLp.topMargin = dp(activity, 7);
+        hub.setLayoutParams(hubLp);
         hub.setOnClickListener(v -> activity.startActivity(new Intent(activity, FeatureHubActivity.class)));
         box.addView(hub);
 
@@ -140,32 +201,63 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         container.addView(box);
     }
 
+    private static TextView actionCard(Activity a, String text, int icon) {
+        TextView v = label(a, text, 13, true);
+        v.setGravity(Gravity.CENTER_VERTICAL);
+        v.setPadding(dp(a, 14), 0, dp(a, 12), 0);
+        v.setCompoundDrawablePadding(dp(a, 8));
+        v.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0);
+        v.setBackgroundResource(R.drawable.bg_glass_panel);
+        return v;
+    }
+
     private static MaterialSwitch toggle(Activity activity, String text, boolean checked) {
-        MaterialSwitch s = new MaterialSwitch(activity); s.setText(text); s.setChecked(checked);
+        MaterialSwitch s = new MaterialSwitch(activity);
+        s.setText(text);
+        s.setChecked(checked);
         s.setTextColor(ContextCompat.getColor(activity, R.color.text_primary));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(activity, 52)); lp.topMargin = dp(activity, 5); s.setLayoutParams(lp); return s;
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(activity, 52));
+        lp.topMargin = dp(activity, 5);
+        s.setLayoutParams(lp);
+        return s;
     }
 
     private static TextView card(Activity a, String text) {
-        TextView v = label(a, text, 13, true); v.setGravity(Gravity.CENTER_VERTICAL); v.setPadding(dp(a, 16), dp(a, 8), dp(a, 16), dp(a, 8)); v.setBackgroundResource(R.drawable.bg_smart_card); return v;
+        TextView v = label(a, text, 13, true);
+        v.setGravity(Gravity.CENTER_VERTICAL);
+        v.setPadding(dp(a, 16), dp(a, 8), dp(a, 16), dp(a, 8));
+        v.setBackgroundResource(R.drawable.bg_smart_card);
+        return v;
     }
 
     private static TextView label(Activity a, String text, int sp, boolean bold) {
-        TextView v = new TextView(a); v.setText(text); v.setTextSize(sp); v.setTextColor(ContextCompat.getColor(a, bold ? R.color.text_primary : R.color.muted));
-        if (bold) v.setTypeface(v.getTypeface(), android.graphics.Typeface.BOLD); return v;
+        TextView v = new TextView(a);
+        v.setText(text);
+        v.setTextSize(sp);
+        v.setTextColor(ContextCompat.getColor(a, bold ? R.color.text_primary : R.color.muted));
+        if (bold) v.setTypeface(v.getTypeface(), android.graphics.Typeface.BOLD);
+        return v;
     }
 
-    private static int dp(Activity a, int n) { return Math.round(n * a.getResources().getDisplayMetrics().density); }
+    private static int dp(Activity a, int n) {
+        return Math.round(n * a.getResources().getDisplayMetrics().density);
+    }
 
     @Override public void onActivityStarted(Activity activity) { startedActivities++; }
-    @Override public void onActivityStopped(Activity activity) { startedActivities = Math.max(0, startedActivities - 1); if (startedActivities == 0) maybeAutoBackup(); }
+
+    @Override public void onActivityStopped(Activity activity) {
+        startedActivities = Math.max(0, startedActivities - 1);
+        if (startedActivities == 0) maybeAutoBackup();
+    }
 
     private void maybeAutoBackup() {
         SharedPreferences settings = getSharedPreferences("settings", MODE_PRIVATE);
         if (!settings.getBoolean("auto_backup", true) || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return;
         long last = settings.getLong("last_auto_backup", 0L);
         if (System.currentTimeMillis() - last < 5 * 60 * 1000L) return;
-        io.execute(() -> { try { new AutoBackupManager(this).backupNow(); } catch (Exception ignored) { } });
+        io.execute(() -> {
+            try { new AutoBackupManager(this).backupNow(); } catch (Exception ignored) { }
+        });
     }
 
     @Override public void onActivityCreated(Activity activity, Bundle savedInstanceState) { }
