@@ -24,6 +24,10 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -37,6 +41,7 @@ import com.nolimit.music.data.SubtitleStore;
 import com.nolimit.music.model.Track;
 import com.nolimit.music.playback.PlaybackService;
 import com.nolimit.music.util.ArtworkLoader;
+import com.nolimit.music.util.DisplayText;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -64,7 +69,8 @@ public final class PlayerActivity extends AppCompatActivity {
     private LinearLayout fullLyricsContainer;
     private ImageView artwork;
     private TextView title, artist, previousLine, currentLine, nextLine, subtitleStatus, currentTime, totalTime;
-    private TextView playPause, shuffle, repeat, like, lyricsMode, speed;
+    private ImageView playPause;
+    private TextView shuffle, repeat, like, lyricsMode, speed;
     private SeekBar seek;
     private String loadedMediaId = "";
     private List<SubtitleStore.Cue> cues = Collections.emptyList();
@@ -82,7 +88,18 @@ public final class PlayerActivity extends AppCompatActivity {
         library = new LibraryStore(this);
         subtitles = new SubtitleStore(this);
         setupLyricsImportLauncher();
-        bindViews(); setupActions(); connectPlayer(); handler.post(ticker);
+        bindViews(); applySystemInsets(); setupActions(); connectPlayer(); handler.post(ticker);
+    }
+
+    private void applySystemInsets() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(dp(14) + bars.left, dp(10) + bars.top,
+                    dp(14) + bars.right, dp(10) + bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(root);
     }
 
     private void setupLyricsImportLauncher() {
@@ -170,13 +187,13 @@ public final class PlayerActivity extends AppCompatActivity {
 
     private void syncPlayerState() {
         if (controller == null || controller.getCurrentMediaItem() == null) {
-            title.setText("재생 중인 곡 없음"); artist.setText(""); playPause.setText("▶"); cues = Collections.emptyList(); showLyrics(-1); return;
+            title.setText("재생 중인 곡 없음"); artist.setText(""); playPause.setImageResource(R.drawable.ic_play_filled); cues = Collections.emptyList(); showLyrics(-1); return;
         }
         MediaItem mediaItem = controller.getCurrentMediaItem(); String mediaId = mediaItem.mediaId == null ? "" : mediaItem.mediaId;
         MediaMetadata metadata = controller.getMediaMetadata(); Track track = library.find(mediaId);
-        title.setText(track != null ? track.title : metadata.title == null ? "재생 중" : metadata.title);
-        artist.setText(track != null ? track.artist : metadata.artist == null ? "" : metadata.artist);
-        playPause.setText(controller.isPlaying() ? "Ⅱ" : "▶");
+        title.setText(track != null ? track.title : metadata.title == null ? "재생 중" : DisplayText.cleanTitle(metadata.title.toString()));
+        artist.setText(track != null ? track.artist : metadata.artist == null ? "" : DisplayText.cleanArtist(metadata.artist.toString()));
+        playPause.setImageResource(controller.isPlaying() ? R.drawable.ic_pause_filled : R.drawable.ic_play_filled);
         if (!mediaId.equals(loadedMediaId)) {
             loadedMediaId = mediaId; cues = subtitles.load(mediaId);
             if (track != null) { ArtworkLoader.load(artwork, this, track.id, track.thumbnailUrl); applyArtworkTone(track); }
@@ -263,7 +280,7 @@ public final class PlayerActivity extends AppCompatActivity {
         if (controller == null || controller.getCurrentMediaItem() == null) return;
         long position = Math.max(0L, controller.getCurrentPosition()); long duration = effectiveDurationMs(); totalTime.setText(formatTime(duration));
         if (!userSeeking) { currentTime.setText(formatTime(position)); seek.setProgress(duration > 0 ? (int) Math.min(1000L, position * 1000L / duration) : 0); }
-        int index = findCueIndex(position); showLyrics(index); highlightFullLyrics(index); playPause.setText(controller.isPlaying() ? "Ⅱ" : "▶");
+        int index = findCueIndex(position); showLyrics(index); highlightFullLyrics(index); playPause.setImageResource(controller.isPlaying() ? R.drawable.ic_pause_filled : R.drawable.ic_play_filled);
     }
 
     private int findCueIndex(long positionMs) {
