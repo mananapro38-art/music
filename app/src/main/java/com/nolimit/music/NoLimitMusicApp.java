@@ -13,6 +13,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -59,14 +60,14 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
     }
 
     private void setupGlassChrome(Activity activity) {
-        TextView home = activity.findViewById(R.id.iconHome);
-        TextView search = activity.findViewById(R.id.iconSearch);
-        TextView library = activity.findViewById(R.id.iconPlaylist);
-        TextView settings = activity.findViewById(R.id.iconSettings);
-        if (home != null) home.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_home, 0, 0, 0);
-        if (search != null) search.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_search, 0, 0, 0);
-        if (library != null) library.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_library, 0, 0, 0);
-        if (settings != null) settings.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_settings, 0, 0, 0);
+        ImageView home = activity.findViewById(R.id.iconHome);
+        ImageView search = activity.findViewById(R.id.iconSearch);
+        ImageView library = activity.findViewById(R.id.iconPlaylist);
+        ImageView settings = activity.findViewById(R.id.iconSettings);
+        if (home != null) home.setImageResource(R.drawable.ic_home);
+        if (search != null) search.setImageResource(R.drawable.ic_search);
+        if (library != null) library.setImageResource(R.drawable.ic_library);
+        if (settings != null) settings.setImageResource(R.drawable.ic_settings);
 
         TextView searchButton = activity.findViewById(R.id.btnSearch);
         if (searchButton != null) {
@@ -87,10 +88,10 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
 
         LiquidGlassOverlayView bottomOverlay = activity.findViewById(R.id.liquidBottomOverlay);
         LiquidGlassOverlayView playerOverlay = activity.findViewById(R.id.liquidPlayerOverlay);
-        bindLiquidTouch(activity.findViewById(R.id.tabHome), bottomOverlay, activity.findViewById(R.id.bottomBlur));
-        bindLiquidTouch(activity.findViewById(R.id.tabSearch), bottomOverlay, activity.findViewById(R.id.bottomBlur));
-        bindLiquidTouch(activity.findViewById(R.id.tabPlaylist), bottomOverlay, activity.findViewById(R.id.bottomBlur));
-        bindLiquidTouch(activity.findViewById(R.id.tabSettings), bottomOverlay, activity.findViewById(R.id.bottomBlur));
+        bindNavPress(activity.findViewById(R.id.tabHome), home, bottomOverlay, activity.findViewById(R.id.bottomBlur));
+        bindNavPress(activity.findViewById(R.id.tabSearch), search, bottomOverlay, activity.findViewById(R.id.bottomBlur));
+        bindNavPress(activity.findViewById(R.id.tabPlaylist), library, bottomOverlay, activity.findViewById(R.id.bottomBlur));
+        bindNavPress(activity.findViewById(R.id.tabSettings), settings, bottomOverlay, activity.findViewById(R.id.bottomBlur));
         bindLiquidTouch(mini, playerOverlay, mini);
     }
 
@@ -116,6 +117,26 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
             if (v == glassRoot) { x = event.getX(); y = event.getY(); }
             int action = event.getActionMasked();
             overlay.setTouchHighlight(x, y, action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_MOVE);
+            return false;
+        });
+    }
+
+    private void bindNavPress(View tab, View icon, LiquidGlassOverlayView overlay, View glassRoot) {
+        if (tab == null || icon == null) return;
+        tab.setOnTouchListener((v, event) -> {
+            int action = event.getActionMasked();
+            boolean pressed = action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_MOVE;
+            icon.animate().cancel();
+            icon.animate()
+                    .scaleX(pressed ? 0.91f : 1f)
+                    .scaleY(pressed ? 0.91f : 1f)
+                    .setDuration(pressed ? 70L : 130L)
+                    .start();
+            if (overlay != null && glassRoot != null) {
+                float x = v.getX() + event.getX();
+                float y = v.getY() + event.getY();
+                overlay.setTouchHighlight(x, y, pressed);
+            }
             return false;
         });
     }
