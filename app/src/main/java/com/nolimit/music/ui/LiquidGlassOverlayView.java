@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RadialGradient;
 import android.graphics.RectF;
 import android.graphics.Shader;
@@ -15,14 +16,16 @@ import android.view.View;
 import androidx.annotation.Nullable;
 
 /**
- * Lightweight optical overlay placed above a real BlurView.
- * It adds a moving specular highlight and edge light without obscuring the blurred content.
+ * Optical layer above BlurView. It deliberately avoids a uniform outline:
+ * the glass is defined by translucency, soft top sheen and touch refraction.
  */
 public final class LiquidGlassOverlayView extends View {
-    private final Paint wash = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint edge = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint shade = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint focus = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
+    private final Path clip = new Path();
+
     private float focusX = -1f;
     private float focusY = -1f;
     private float focusAlpha = 0f;
@@ -30,15 +33,15 @@ public final class LiquidGlassOverlayView extends View {
 
     public LiquidGlassOverlayView(Context context) { super(context); init(); }
     public LiquidGlassOverlayView(Context context, @Nullable AttributeSet attrs) { super(context, attrs); init(); }
-    public LiquidGlassOverlayView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) { super(context, attrs, defStyleAttr); init(); }
+    public LiquidGlassOverlayView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr); init();
+    }
 
     private void init() {
         setWillNotDraw(false);
         setClickable(false);
         setFocusable(false);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
-        edge.setStyle(Paint.Style.STROKE);
-        edge.setStrokeWidth(dp(0.65f));
     }
 
     public void setCornerRadiusDp(float value) {
@@ -49,50 +52,57 @@ public final class LiquidGlassOverlayView extends View {
     public void setTouchHighlight(float x, float y, boolean pressed) {
         focusX = x;
         focusY = y;
-        animate().cancel();
-        if (pressed) {
-            focusAlpha = 1f;
-            setAlpha(1f);
-            invalidate();
-        } else {
-            focusAlpha = 0f;
-            animate().alpha(0.78f).setDuration(260).withEndAction(() -> {
-                setAlpha(1f);
-                invalidate();
-            }).start();
-        }
+        focusAlpha = pressed ? 1f : 0f;
+        invalidate();
     }
 
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (getWidth() <= 0 || getHeight() <= 0) return;
+        float w = getWidth(), h = getHeight();
+        if (w <= 0 || h <= 0) return;
 
         boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                 == Configuration.UI_MODE_NIGHT_YES;
-        float w = getWidth(), h = getHeight();
         float r = dp(radiusDp);
-        rect.set(dp(0.5f), dp(0.5f), w - dp(0.5f), h - dp(0.5f));
+        rect.set(0f, 0f, w, h);
+        clip.reset();
+        clip.addRoundRect(rect, r, r, Path.Direction.CW);
 
-        int top = dark ? 0x32FFFFFF : 0x66FFFFFF;
-        int middle = dark ? 0x12FFFFFF : 0x24FFFFFF;
-        int clear = 0x00FFFFFF;
-        wash.setShader(new LinearGradient(0, 0, w * 0.86f, h,
-                new int[]{top, middle, clear},
-                new float[]{0f, 0.42f, 1f}, Shader.TileMode.CLAMP));
-        canvas.drawRoundRect(rect, r, r, wash);
+        canvas.save();
+        canvas.clipPath(clip);
 
-        edge.setShader(new LinearGradient(0, 0, 0, h,
-                new int[]{dark ? 0x58FFFFFF : 0xA8FFFFFF, dark ? 0x18FFFFFF : 0x36FFFFFF, 0x08FFFFFF},
-                new float[]{0f, 0.48f, 1f}, Shader.TileMode.CLAMP));
-        canvas.drawRoundRect(rect, r, r, edge);
+        // Broad, soft sheen from upper-left. No hard stroke around the capsule.
+        sheen.setShader(new LinearGradient(
+                0, 0, w * 0.82f, h,
+                new int[]{
+                        dark ? 0x38FFFFFF : 0x72FFFFFF,
+                        dark ? 0x16FFFFFF : 0x30FFFFFF,
+                        0x00FFFFFF
+                },
+                new float[]{0f, 0.38f, 1f},
+                Shader.TileMode.CLAMP));
+        canvas.drawRect(0, 0, w, h, sheen);
 
+        // Subtle lower shading gives the surface thickness without an outline.
+        shade.setShader(new LinearGradient(
+                0, h * 0.46f, 0, h,
+                new int[]{0x00000000, dark ? 0x18000000 : 0x0A000000},
+                null, Shader.TileMode.CLAMP));
+        canvas.drawRect(0, h * 0.35f, w, h, shade);
+
+        // Local highlight follows the finger and reads as moving optical reflection.
         if (focusX >= 0f && focusAlpha > 0f) {
-            int center = Color.argb((int)(dark ? 52 * focusAlpha : 82 * focusAlpha), 255, 255, 255);
-            focus.setShader(new RadialGradient(focusX, focusY, Math.max(w, h) * 0.54f,
-                    new int[]{center, 0x00FFFFFF},
-                    new float[]{0f, 1f}, Shader.TileMode.CLAMP));
-            canvas.drawRoundRect(rect, r, r, focus);
+            int center = Color.argb(dark ? 54 : 76, 255, 255, 255);
+            focus.setShader(new RadialGradient(
+                    focusX, focusY,
+                    Math.max(w * 0.30f, h * 1.35f),
+                    new int[]{center, 0x12FFFFFF, 0x00FFFFFF},
+                    new float[]{0f, 0.42f, 1f},
+                    Shader.TileMode.CLAMP));
+            canvas.drawRect(0, 0, w, h, focus);
         }
+
+        canvas.restore();
     }
 
     private float dp(float value) {
