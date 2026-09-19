@@ -48,7 +48,7 @@ public final class YoutubeRepository {
     public static final String KEY_FILTER_EXCLUDE_COVER = "filter_exclude_cover";
     public static final String KEY_FILTER_INCLUDE_REMIX = "filter_include_remix";
     private static final String KEY_LAST_YTM_ERROR = "last_ytm_error";
-    private static final String YTM_SONGS_PARAMS = "EgWKAQIIAWoKEAoQAxAEEAkQBQ==";
+    // Current ytmusicapi "songs" search params (SearchMixin.get_search_params("songs")).\n    private static final String YTM_SONGS_PARAMS = "EgWKAQIIAWoMEA4QChADEAQQCRAF";
     private static final String YTM_FALLBACK_API_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30";
 
     private static final Pattern BC_ITEM = Pattern.compile("(?is)<li[^>]*class=\\\"[^\\\"]*searchresult[^\\\"]*\\\"[^>]*>(.*?)</li>");
@@ -205,9 +205,21 @@ public final class YoutubeRepository {
                 .put("query", query)
                 .put("params", YTM_SONGS_PARAMS);
 
-        String endpoint = "https://music.youtube.com/youtubei/v1/search?alt=json&key="
-                + URLEncoder.encode(config.apiKey, StandardCharsets.UTF_8);
-        JSONObject response = new JSONObject(postJson(endpoint, body.toString(), config));
+        // Match current ytmusicapi anonymous search first: no API key is required.
+        String endpoint = "https://music.youtube.com/youtubei/v1/search?alt=json";
+        JSONObject response;
+        try {
+            response = new JSONObject(postJson(endpoint, body.toString(), config));
+        } catch (Exception anonymousError) {
+            // Compatibility fallback for deployments that still require the public web key.
+            String keyed = endpoint + "&key=" + URLEncoder.encode(config.apiKey, StandardCharsets.UTF_8);
+            try {
+                response = new JSONObject(postJson(keyed, body.toString(), config));
+            } catch (Exception keyedError) {
+                throw new IllegalStateException("anonymous=" + compactError(anonymousError)
+                        + " / keyed=" + compactError(keyedError), keyedError);
+            }
+        }
         List<SearchResult> out = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         collectMusicResponsiveItems(response, out, seen, limit);
@@ -303,6 +315,12 @@ public final class YoutubeRepository {
                 if (parsed != null && seen.add(parsed.id)) out.add(parsed);
                 if (out.size() >= limit) return;
             }
+            JSONObject twoRow = obj.optJSONObject("musicTwoRowItemRenderer");
+            if (twoRow != null) {
+                SearchResult parsed = parseMusicTwoRowItem(twoRow);
+                if (parsed != null && seen.add(parsed.id)) out.add(parsed);
+                if (out.size() >= limit) return;
+            }
             java.util.Iterator<String> keys = obj.keys();
             while (keys.hasNext() && out.size() < limit) {
                 collectMusicResponsiveItems(obj.opt(keys.next()), out, seen, limit);
@@ -355,6 +373,35 @@ public final class YoutubeRepository {
         return new SearchResult(id, title, artist,
                 "https://www.youtube.com/watch?v=" + id,
                 duration, thumbnail, 220, "YouTube Music · 곡", album);
+    }
+
+    private static SearchResult parseMusicTwoRowItem(JSONObject renderer) {
+        String id = findVideoId(renderer);
+        if (id.isEmpty() || id.length() != 11) return null;
+        String title = textFromRuns(renderer.optJSONObject("title"));
+        String subtitle = textFromRuns(renderer.optJSONObject("subtitle"));
+        if (title.isEmpty()) return null;
+        String artist = subtitle;
+        int dot = subtitle.indexOf(" • ");
+        if (dot > 0) artist = subtitle.substring(0, dot).trim();
+        String thumbnail = findLargestThumbnail(renderer);
+        return new SearchResult(id, title, artist,
+                "https://www.youtube.com/watch?v=" + id,
+                0L, thumbnail, 180, "YouTube Music · 곡", "");
+    }
+
+    private static String textFromRuns(JSONObject textObject) {
+        if (textObject == null) return "";
+        String simple = textObject.optString("simpleText", "").trim();
+        if (!simple.isEmpty()) return simple;
+        JSONArray runs = textObject.optJSONArray("runs");
+        if (runs == null) return "";
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < runs.length(); i++) {
+            JSONObject run = runs.optJSONObject(i);
+            if (run != null) b.append(run.optString("text", ""));
+        }
+        return b.toString().trim();
     }
 
     private static List<String> extractTextRuns(JSONArray columns, int index) {
