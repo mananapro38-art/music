@@ -21,4 +21,20 @@ public class MusicRankerTest {
         assertEquals("1", ranked.get(0).id);
         assertTrue(ranked.get(0).score > ranked.get(1).score);
     }
+    @Test
+    public void ytmAudioArtistMatchRanksAboveKaraokeMention() {
+        SearchResult audio = new SearchResult(
+                "audio123456", "봄봄봄", "로이킴", "u1", 210, "", 360, "YTM_AUDIO", "Love Love Love");
+        SearchResult karaoke = new SearchResult(
+                "karaoke1234", "[TJ노래방] 로이킴 - 봄봄봄", "TJ노래방", "u2", 220, "", 60, "YTM_OTHER", "");
+        SearchResult episode = new SearchResult(
+                "episode1234", "로이킴이 말하는 음악 이야기 Episode", "Podcast", "u3", 1800, "", 60, "YTM_OTHER", "");
+
+        List<SearchResult> ranked = MusicRanker.rank(Arrays.asList(karaoke, episode, audio), "로이킴");
+
+        assertEquals("audio123456", ranked.get(0).id);
+        assertEquals("음원", ranked.get(0).badge);
+        assertTrue(ranked.get(0).score > ranked.get(1).score);
+    }
+
 }
