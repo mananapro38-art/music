@@ -49,7 +49,7 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
     public SearchDiscoveryView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         setOrientation(VERTICAL);
-        setPadding(0, dp(10), 0, dp(4));
+        setPadding(0, dp(6), 0, dp(2));
         prefs = context.getSharedPreferences(YoutubeRepository.SETTINGS_PREFS, Context.MODE_PRIVATE);
         buildUi();
     }
@@ -59,9 +59,9 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
         TextView optionsTitle = label("검색 옵션", 13, true);
         sourceSummary = label(sourceLabel(), 11, false);
         optionsArrow = label("⌄", 18, false);
-        optionsHeader.addView(optionsTitle, new LayoutParams(0, dp(46), 1f));
+        optionsHeader.addView(optionsTitle, new LayoutParams(0, dp(40), 1f));
         optionsHeader.addView(sourceSummary);
-        optionsHeader.addView(optionsArrow, new LayoutParams(dp(34), dp(46)));
+        optionsHeader.addView(optionsArrow, new LayoutParams(dp(30), dp(40)));
         optionsHeader.setOnClickListener(v -> toggleOptions());
         addView(optionsHeader);
 
@@ -69,7 +69,7 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
         optionsPanel.setOrientation(VERTICAL);
         optionsPanel.setVisibility(GONE);
         LayoutParams optionLp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-        optionLp.topMargin = dp(8);
+        optionLp.topMargin = dp(5);
         addView(optionsPanel, optionLp);
 
         optionsPanel.addView(label("검색 플랫폼", 11, true));
@@ -77,7 +77,7 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
         sourceGroup.setSingleSelection(true);
         sourceGroup.setSelectionRequired(true);
         sourceGroup.setSingleLine(true);
-        sourceGroup.setChipSpacingHorizontal(dp(6));
+        sourceGroup.setChipSpacingHorizontal(dp(4));
         HorizontalScrollView sourceScroll = new HorizontalScrollView(getContext());
         sourceScroll.setHorizontalScrollBarEnabled(false);
         sourceScroll.addView(sourceGroup, new HorizontalScrollView.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
@@ -86,12 +86,12 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
 
         TextView filterTitle = label("결과 필터", 11, true);
         LayoutParams ft = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-        ft.topMargin = dp(8);
+        ft.topMargin = dp(5);
         optionsPanel.addView(filterTitle, ft);
         filterGroup = new ChipGroup(getContext());
         filterGroup.setSingleLine(false);
-        filterGroup.setChipSpacingHorizontal(dp(6));
-        filterGroup.setChipSpacingVertical(dp(4));
+        filterGroup.setChipSpacingHorizontal(dp(4));
+        filterGroup.setChipSpacingVertical(dp(2));
         optionsPanel.addView(filterGroup);
         renderFilterButtons();
 
@@ -99,30 +99,30 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
         recentHeader.setOrientation(HORIZONTAL);
         recentHeader.setGravity(Gravity.CENTER_VERTICAL);
         LayoutParams rhLp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-        rhLp.topMargin = dp(10);
+        rhLp.topMargin = dp(7);
         addView(recentHeader, rhLp);
         recentHeader.addView(label("최근 검색", 12, true), new LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         TextView clear = label("지우기", 10, false);
-        clear.setPadding(dp(10), dp(5), 0, dp(5));
+        clear.setPadding(dp(8), dp(3), 0, dp(3));
         clear.setOnClickListener(v -> prefs.edit().remove(YoutubeRepository.KEY_RECENT_SEARCHES).apply());
         recentHeader.addView(clear);
 
         recentRow = new LinearLayout(getContext());
         recentRow.setOrientation(HORIZONTAL);
         HorizontalScrollView recentScroll = horizontal(recentRow);
-        LayoutParams rsLp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(42));
+        LayoutParams rsLp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(38));
         rsLp.topMargin = dp(2);
         addView(recentScroll, rsLp);
 
         LinearLayout popularHeader = glassRow();
-        LayoutParams phLp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(46));
-        phLp.topMargin = dp(7);
+        LayoutParams phLp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(40));
+        phLp.topMargin = dp(5);
         addView(popularHeader, phLp);
-        popularHeader.addView(label("추천 키워드", 12, true), new LinearLayout.LayoutParams(0, dp(46), 1f));
+        popularHeader.addView(label("추천 키워드", 12, true), new LinearLayout.LayoutParams(0, dp(40), 1f));
         popularStatus = label("", 10, false);
         popularHeader.addView(popularStatus);
         popularArrow = label("›", 20, false);
-        popularHeader.addView(popularArrow, new LinearLayout.LayoutParams(dp(34), dp(46)));
+        popularHeader.addView(popularArrow, new LinearLayout.LayoutParams(dp(30), dp(40)));
         popularHeader.setOnClickListener(v -> togglePopular());
 
         popularPanel = new LinearLayout(getContext());
@@ -131,7 +131,7 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
         popularRow = new LinearLayout(getContext());
         popularRow.setOrientation(HORIZONTAL);
         HorizontalScrollView popularScroll = horizontal(popularRow);
-        LayoutParams psLp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(44));
+        LayoutParams psLp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(38));
         psLp.topMargin = dp(3);
         popularPanel.addView(popularScroll, psLp);
         addView(popularPanel);
@@ -143,7 +143,7 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(14), 0, dp(6), 0);
+        row.setPadding(dp(10), 0, dp(4), 0);
         row.setBackgroundResource(R.drawable.bg_search);
         return row;
     }
@@ -228,7 +228,7 @@ public final class SearchDiscoveryView extends LinearLayout implements SharedPre
         chip.setText(title);
         chip.setTextSize(11f);
         chip.setEnsureMinTouchTargetSize(false);
-        chip.setChipMinHeight(dp(34));
+        chip.setChipMinHeight(dp(30));
         chip.setTextColor(ContextCompat.getColor(getContext(), R.color.text_primary));
         return chip;
     }
