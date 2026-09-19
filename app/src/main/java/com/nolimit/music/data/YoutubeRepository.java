@@ -18,6 +18,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -46,6 +47,9 @@ public final class YoutubeRepository {
     public static final String KEY_FILTER_EXCLUDE_LIVE = "filter_exclude_live";
     public static final String KEY_FILTER_EXCLUDE_COVER = "filter_exclude_cover";
     public static final String KEY_FILTER_INCLUDE_REMIX = "filter_include_remix";
+    private static final String KEY_LAST_YTM_ERROR = "last_ytm_error";
+    private static final String YTM_SONGS_PARAMS = "EgWKAQIIAWoKEAoQAxAEEAkQBQ==";
+    private static final String YTM_FALLBACK_API_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30";
 
     private static final Pattern BC_ITEM = Pattern.compile("(?is)<li[^>]*class=\\\"[^\\\"]*searchresult[^\\\"]*\\\"[^>]*>(.*?)</li>");
     private static final Pattern BC_HEADING = Pattern.compile("(?is)<div[^>]*class=\\\"heading\\\"[^>]*>.*?<a[^>]*href=\\\"([^\\\"]+)\\\"[^>]*>(.*?)</a>");
@@ -86,6 +90,7 @@ public final class YoutubeRepository {
         else if ("audius".equals(source)) raw = searchAudius(normalized, 40);
         else if ("bandcamp".equals(source)) raw = searchBandcamp(normalized, 40);
         else raw = searchMusicFirst(normalized, 40);
+        raw = MusicRanker.preferAudioResults(raw, normalized);
         return applyFilters(raw, normalized, settings, 30);
     }
 
@@ -135,18 +140,316 @@ public final class YoutubeRepository {
     }
 
     public List<SearchResult> searchYoutubeMusicSongs(String query, int limit) throws Exception {
-        String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
-        // Explicit Songs section parameter from yt-dlp's YoutubeMusicSearchURLIE.
-        // Using a real query parameter is more robust through Android URL/request wrappers than #songs.
-        String songsParam = "EgWKAQIIAWoKEAoQAxAEEAkQBQ%3D%3D";
-        String filteredUrl = "https://music.youtube.com/search?q=" + encoded + "&sp=" + songsParam;
-        List<SearchResult> results = executeFlatSearch(filteredUrl, limit);
-        if (results.isEmpty()) {
-            // Keep the extractor's documented fragment form as a compatibility fallback.
-            results = executeFlatSearch("https://music.youtube.com/search?q=" + encoded + "#songs", limit);
+        List<String> errors = new ArrayList<>();
+
+        // 1) Direct WEB_REMIX catalogue search. This avoids relying on yt-dlp stdout
+        // formatting for music search and is the same public catalogue surface used by
+        // the YouTube Music web client.
+        try {
+            List<SearchResult> direct = searchYoutubeMusicInnertube(query, limit);
+            if (!direct.isEmpty()) {
+                rememberYtmError("");
+                return tagResults(MusicRanker.rank(direct, query), "", "YouTube Music");
+            }
+            errors.add("WEB_REMIX: 결과 없음");
+        } catch (Exception e) {
+            errors.add("WEB_REMIX: " + compactError(e));
         }
-        if (results.isEmpty()) throw new IllegalStateException("YouTube Music 곡 검색 결과를 불러오지 못했습니다.");
-        return tagResults(MusicRanker.rank(results, query), "", "YouTube Music");
+
+        // 2) yt-dlp's dedicated YoutubeMusicSearchURLIE.
+        try {
+            String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
+            String filteredUrl = "https://music.youtube.com/search?q=" + encoded
+                    + "&sp=" + URLEncoder.encode(YTM_SONGS_PARAMS, StandardCharsets.UTF_8);
+            List<SearchResult> extracted = executeFlatSearch(filteredUrl, limit);
+            if (extracted.isEmpty()) {
+                extracted = executeFlatSearch("https://music.youtube.com/search?q=" + encoded + "#songs", limit);
+            }
+            if (!extracted.isEmpty()) {
+                rememberYtmError(String.join(" | ", errors));
+                return tagResults(MusicRanker.rank(extracted, query), "", "YouTube Music");
+            }
+            errors.add("yt-dlp: 결과 없음");
+        } catch (Exception e) {
+            errors.add("yt-dlp: " + compactError(e));
+        }
+
+        // 3) Never strand the user on an empty page. Use ordinary YouTube but keep the
+        // same strong audio-first ranking and clearly label this as a fallback.
+        try {
+            List<SearchResult> fallback = searchYoutube(query + " official audio", limit);
+            if (!fallback.isEmpty()) {
+                rememberYtmError(String.join(" | ", errors));
+                return relabel(fallback, "YouTube 음원 대체");
+            }
+        } catch (Exception e) {
+            errors.add("YouTube fallback: " + compactError(e));
+        }
+
+        String detail = String.join(" | ", errors);
+        rememberYtmError(detail);
+        throw new IllegalStateException("YouTube Music 검색 실패" + (detail.isEmpty() ? "" : " · " + detail));
+    }
+
+    private List<SearchResult> searchYoutubeMusicInnertube(String query, int limit) throws Exception {
+        YtmConfig config = loadYtmConfig();
+        JSONObject client = new JSONObject()
+                .put("clientName", "WEB_REMIX")
+                .put("clientVersion", config.clientVersion)
+                .put("hl", "ko")
+                .put("gl", "KR");
+        JSONObject body = new JSONObject()
+                .put("context", new JSONObject()
+                        .put("client", client)
+                        .put("user", new JSONObject()))
+                .put("query", query)
+                .put("params", YTM_SONGS_PARAMS);
+
+        String endpoint = "https://music.youtube.com/youtubei/v1/search?alt=json&key="
+                + URLEncoder.encode(config.apiKey, StandardCharsets.UTF_8);
+        JSONObject response = new JSONObject(postJson(endpoint, body.toString(), config));
+        List<SearchResult> out = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        collectMusicResponsiveItems(response, out, seen, limit);
+        return out;
+    }
+
+    private static final class YtmConfig {
+        final String apiKey;
+        final String clientVersion;
+        final String visitorData;
+        YtmConfig(String apiKey, String clientVersion, String visitorData) {
+            this.apiKey = apiKey;
+            this.clientVersion = clientVersion;
+            this.visitorData = visitorData;
+        }
+    }
+
+    private YtmConfig loadYtmConfig() {
+        String apiKey = YTM_FALLBACK_API_KEY;
+        String version = "1." + new java.text.SimpleDateFormat("yyyyMMdd", Locale.US)
+                .format(new java.util.Date()) + ".01.00";
+        String visitor = "";
+        try {
+            String page = readUrl("https://music.youtube.com/");
+            apiKey = firstRegex(page,
+                    "\\\"INNERTUBE_API_KEY\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"",
+                    apiKey);
+            version = firstRegex(page,
+                    "\\\"INNERTUBE_CLIENT_VERSION\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"",
+                    version);
+            visitor = firstRegex(page,
+                    "\\\"VISITOR_DATA\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"",
+                    "");
+        } catch (Exception ignored) { }
+        return new YtmConfig(apiKey, version, visitor);
+    }
+
+    private static String firstRegex(String text, String expression, String fallback) {
+        try {
+            Matcher m = Pattern.compile(expression).matcher(text == null ? "" : text);
+            return m.find() ? m.group(1) : fallback;
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
+    private static String postJson(String url, String json, YtmConfig config) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(22000);
+        conn.setInstanceFollowRedirects(true);
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setRequestProperty("User-Agent",
+                "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Mobile Safari/537.36");
+        conn.setRequestProperty("Accept", "*/*");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("Origin", "https://music.youtube.com");
+        conn.setRequestProperty("Referer", "https://music.youtube.com/");
+        conn.setRequestProperty("X-YouTube-Client-Name", "67");
+        conn.setRequestProperty("X-YouTube-Client-Version", config.clientVersion);
+        if (config.visitorData != null && !config.visitorData.isEmpty()) {
+            conn.setRequestProperty("X-Goog-Visitor-Id", config.visitorData);
+        }
+        try (OutputStream out = conn.getOutputStream()) {
+            out.write(json.getBytes(StandardCharsets.UTF_8));
+        }
+        int code = conn.getResponseCode();
+        InputStream in = code >= 200 && code < 400 ? conn.getInputStream() : conn.getErrorStream();
+        if (in == null) throw new IllegalStateException("HTTP " + code);
+        StringBuilder body = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) body.append(line);
+        } finally {
+            conn.disconnect();
+        }
+        if (code < 200 || code >= 400) {
+            String sample = body.length() > 180 ? body.substring(0, 180) : body.toString();
+            throw new IllegalStateException("HTTP " + code + (sample.isEmpty() ? "" : " · " + sample));
+        }
+        return body.toString();
+    }
+
+    private static void collectMusicResponsiveItems(Object node, List<SearchResult> out,
+                                                    Set<String> seen, int limit) {
+        if (node == null || out.size() >= limit) return;
+        if (node instanceof JSONObject) {
+            JSONObject obj = (JSONObject) node;
+            JSONObject renderer = obj.optJSONObject("musicResponsiveListItemRenderer");
+            if (renderer != null) {
+                SearchResult parsed = parseMusicResponsiveItem(renderer);
+                if (parsed != null && seen.add(parsed.id)) out.add(parsed);
+                if (out.size() >= limit) return;
+            }
+            java.util.Iterator<String> keys = obj.keys();
+            while (keys.hasNext() && out.size() < limit) {
+                collectMusicResponsiveItems(obj.opt(keys.next()), out, seen, limit);
+            }
+        } else if (node instanceof JSONArray) {
+            JSONArray array = (JSONArray) node;
+            for (int i = 0; i < array.length() && out.size() < limit; i++) {
+                collectMusicResponsiveItems(array.opt(i), out, seen, limit);
+            }
+        }
+    }
+
+    private static SearchResult parseMusicResponsiveItem(JSONObject renderer) {
+        String id = findVideoId(renderer);
+        if (id.isEmpty() || id.length() != 11) return null;
+
+        List<String> primary = extractTextRuns(renderer.optJSONArray("flexColumns"), 0);
+        List<String> secondary = extractTextRuns(renderer.optJSONArray("flexColumns"), 1);
+        if (primary.isEmpty()) return null;
+
+        String title = firstMeaningful(primary);
+        String artist = "";
+        String album = "";
+        long duration = 0L;
+
+        List<String> metadata = new ArrayList<>();
+        for (String s : secondary) {
+            String t = s == null ? "" : s.trim();
+            if (t.isEmpty() || "•".equals(t) || "·".equals(t)) continue;
+            if (t.matches("\\d{1,2}:\\d{2}(?::\\d{2})?")) {
+                duration = parseDurationText(t);
+                continue;
+            }
+            metadata.add(t);
+        }
+        if (!metadata.isEmpty()) artist = metadata.get(0);
+        if (metadata.size() >= 2) album = metadata.get(1);
+
+        if (duration == 0L) {
+            List<String> fixed = extractTextRuns(renderer.optJSONArray("fixedColumns"), 0);
+            for (String s : fixed) {
+                if (s != null && s.trim().matches("\\d{1,2}:\\d{2}(?::\\d{2})?")) {
+                    duration = parseDurationText(s.trim());
+                    break;
+                }
+            }
+        }
+
+        String thumbnail = findLargestThumbnail(renderer);
+        return new SearchResult(id, title, artist,
+                "https://www.youtube.com/watch?v=" + id,
+                duration, thumbnail, 220, "YouTube Music · 곡", album);
+    }
+
+    private static List<String> extractTextRuns(JSONArray columns, int index) {
+        List<String> out = new ArrayList<>();
+        if (columns == null || index < 0 || index >= columns.length()) return out;
+        JSONObject wrapper = columns.optJSONObject(index);
+        if (wrapper == null) return out;
+
+        JSONObject column = wrapper.optJSONObject("musicResponsiveListItemFlexColumnRenderer");
+        if (column == null) column = wrapper.optJSONObject("musicResponsiveListItemFixedColumnRenderer");
+        if (column == null) return out;
+
+        JSONObject text = column.optJSONObject("text");
+        JSONArray runs = text == null ? null : text.optJSONArray("runs");
+        if (runs == null) return out;
+        for (int i = 0; i < runs.length(); i++) {
+            JSONObject run = runs.optJSONObject(i);
+            if (run != null) out.add(run.optString("text", ""));
+        }
+        return out;
+    }
+
+    private static String firstMeaningful(List<String> values) {
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) return value.trim();
+        }
+        return "";
+    }
+
+    private static String findVideoId(Object node) {
+        if (node == null) return "";
+        if (node instanceof JSONObject) {
+            JSONObject obj = (JSONObject) node;
+            String direct = obj.optString("videoId", "");
+            if (direct.length() == 11) return direct;
+            java.util.Iterator<String> keys = obj.keys();
+            while (keys.hasNext()) {
+                String value = findVideoId(obj.opt(keys.next()));
+                if (!value.isEmpty()) return value;
+            }
+        } else if (node instanceof JSONArray) {
+            JSONArray array = (JSONArray) node;
+            for (int i = 0; i < array.length(); i++) {
+                String value = findVideoId(array.opt(i));
+                if (!value.isEmpty()) return value;
+            }
+        }
+        return "";
+    }
+
+    private static String findLargestThumbnail(Object node) {
+        List<String> urls = new ArrayList<>();
+        collectThumbnailUrls(node, urls);
+        return urls.isEmpty() ? "" : urls.get(urls.size() - 1);
+    }
+
+    private static void collectThumbnailUrls(Object node, List<String> urls) {
+        if (node == null) return;
+        if (node instanceof JSONObject) {
+            JSONObject obj = (JSONObject) node;
+            String url = obj.optString("url", "");
+            if (url.startsWith("http") && (url.contains("ggpht") || url.contains("ytimg"))) urls.add(url);
+            java.util.Iterator<String> keys = obj.keys();
+            while (keys.hasNext()) collectThumbnailUrls(obj.opt(keys.next()), urls);
+        } else if (node instanceof JSONArray) {
+            JSONArray a = (JSONArray) node;
+            for (int i = 0; i < a.length(); i++) collectThumbnailUrls(a.opt(i), urls);
+        }
+    }
+
+    private static long parseDurationText(String value) {
+        try {
+            String[] p = value.split(":");
+            long total = 0L;
+            for (String s : p) total = total * 60L + Long.parseLong(s);
+            return total;
+        } catch (Exception ignored) {
+            return 0L;
+        }
+    }
+
+    private void rememberYtmError(String error) {
+        appContext.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
+                .edit().putString(KEY_LAST_YTM_ERROR, error == null ? "" : error).apply();
+    }
+
+    private static List<SearchResult> relabel(List<SearchResult> input, String source) {
+        List<SearchResult> out = new ArrayList<>();
+        for (SearchResult item : input) {
+            out.add(new SearchResult(item.id, item.title, item.channel, item.url,
+                    item.durationSeconds, item.thumbnail, item.score,
+                    source + (item.badge == null || item.badge.isEmpty() ? "" : " · " + item.badge),
+                    item.album));
+        }
+        return out;
     }
 
     public List<SearchResult> searchYoutube(String query, int limit) throws Exception {
