@@ -14,7 +14,7 @@
     <color name="tertiary">#AF52DE</color>
     <color name="nav_surface">#A3FFFFFF</color>
     <color name="nav_border">#9AFFFFFF</color>
-    <color name="nav_active">#FFE7ED</color>
+    <color name="nav_active">#33FF2D55</color>
     <color name="nav_icon">#1C1C1E</color>
     <color name="widget_surface">#EFFFFFFF</color>
     <color name="widget_border">#33FFFFFF</color>
