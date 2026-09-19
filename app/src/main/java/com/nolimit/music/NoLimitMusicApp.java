@@ -20,6 +20,10 @@ import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.core.widget.NestedScrollView;
 
 import com.google.android.material.materialswitch.MaterialSwitch;
@@ -51,6 +55,7 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
             playerBar.setBackgroundResource(R.drawable.bg_glass_panel);
             playerBar.setOnClickListener(v -> activity.startActivity(new Intent(activity, PlayerActivity.class)));
         }
+        applyMainInsets(activity);
         setupGlassChrome(activity);
         injectHomeActions(activity);
         collapseHomePreview(activity);
@@ -88,11 +93,40 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
 
         LiquidGlassOverlayView bottomOverlay = activity.findViewById(R.id.liquidBottomOverlay);
         LiquidGlassOverlayView playerOverlay = activity.findViewById(R.id.liquidPlayerOverlay);
+        if (bottomOverlay != null) bottomOverlay.setCornerRadiusDp(28f);
+        if (playerOverlay != null) playerOverlay.setCornerRadiusDp(22f);
         bindNavPress(activity.findViewById(R.id.tabHome), home, bottomOverlay, activity.findViewById(R.id.bottomBlur));
         bindNavPress(activity.findViewById(R.id.tabSearch), search, bottomOverlay, activity.findViewById(R.id.bottomBlur));
         bindNavPress(activity.findViewById(R.id.tabPlaylist), library, bottomOverlay, activity.findViewById(R.id.bottomBlur));
         bindNavPress(activity.findViewById(R.id.tabSettings), settings, bottomOverlay, activity.findViewById(R.id.bottomBlur));
         bindLiquidTouch(mini, playerOverlay, mini);
+    }
+
+    private void applyMainInsets(Activity activity) {
+        WindowCompat.setDecorFitsSystemWindows(activity.getWindow(), false);
+        View content = activity.findViewById(R.id.mainContent);
+        View bottom = activity.findViewById(R.id.bottomBlur);
+        View mini = activity.findViewById(R.id.playerBar);
+        if (content == null || "insets-bound".equals(content.getTag())) return;
+        content.setTag("insets-bound");
+        ViewCompat.setOnApplyWindowInsetsListener(content, (v, windowInsets) -> {
+            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(dp(activity, 14) + bars.left, bars.top + dp(activity, 10),
+                    dp(activity, 14) + bars.right, 0);
+
+            if (bottom != null && bottom.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) bottom.getLayoutParams();
+                lp.bottomMargin = bars.bottom + dp(activity, 8);
+                bottom.setLayoutParams(lp);
+            }
+            if (mini != null && mini.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) mini.getLayoutParams();
+                lp.bottomMargin = bars.bottom + dp(activity, 70);
+                mini.setLayoutParams(lp);
+            }
+            return windowInsets;
+        });
+        ViewCompat.requestApplyInsets(content);
     }
 
     private void configureBlur(Activity activity, BlurTarget target, BlurView blur, int fallbackBackground, float radius) {
@@ -159,7 +193,7 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
 
         TextView more = actionCard(activity, "보관함 · 더보기", R.drawable.ic_library);
         more.setOnClickListener(v -> showMoreSheet(activity));
-        LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(0, dp(activity, 58), 1f);
+        LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(0, dp(activity, 50), 1f);
         right.setMarginStart(dp(activity, 3));
         row.addView(more, right);
 
@@ -259,7 +293,7 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         v.setPadding(dp(a, 10), 0, dp(a, 9), 0);
         v.setCompoundDrawablePadding(dp(a, 6));
         v.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0);
-        v.setBackgroundResource(R.drawable.bg_glass_panel);
+        v.setBackgroundResource(R.drawable.bg_smart_card);
         return v;
     }
 
