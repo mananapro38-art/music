@@ -19,7 +19,7 @@
             android:id="@+id/btnPlayerClose"
             android:layout_width="42dp"
             android:layout_height="42dp"
-            android:background="@drawable/bg_smart_card"
+            android:background="@android:color/transparent"
             android:gravity="center"
             android:text="⌄"
             android:textColor="@color/text_primary"
@@ -32,7 +32,7 @@
             android:id="@+id/btnPlayerLike"
             android:layout_width="42dp"
             android:layout_height="42dp"
-            android:background="@drawable/bg_smart_card"
+            android:background="@android:color/transparent"
             android:gravity="center"
             android:text="♡"
             android:textColor="@color/tertiary"
@@ -42,7 +42,7 @@
     <FrameLayout
         android:id="@+id/artworkFrame"
         android:layout_width="match_parent"
-        android:layout_height="330dp"
+        android:layout_height="318dp"
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="8dp"
         android:background="@drawable/bg_card"
@@ -62,8 +62,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:layout_margin="10dp"
-            android:background="@drawable/bg_card"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_lyrics_glass"
             android:gravity="center"
             android:orientation="vertical"
             android:paddingLeft="12dp"
@@ -81,7 +81,7 @@
         android:layout_width="match_parent"
         android:layout_height="330dp"
         android:layout_marginTop="8dp"
-        android:background="@drawable/bg_card"
+        android:background="@drawable/bg_lyrics_glass"
         android:clipToOutline="true"
         android:fillViewport="false"
         android:padding="12dp"
@@ -105,9 +105,9 @@
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="64dp" android:layout_marginTop="3dp" android:gravity="center" android:orientation="horizontal">
         <TextView android:id="@+id/btnPlayerShuffle" android:layout_width="44dp" android:layout_height="match_parent" android:gravity="center" android:text="⤨" android:textColor="@color/text_primary" android:textSize="19sp" />
-        <TextView android:id="@+id/btnPlayerPrevious" android:layout_width="56dp" android:layout_height="match_parent" android:gravity="center" android:text="⏮" android:textColor="@color/text_primary" android:textSize="25sp" />
-        <TextView android:id="@+id/btnPlayerPlayPause" android:layout_width="60dp" android:layout_height="60dp" android:background="@drawable/bg_nav_active" android:gravity="center" android:text="▶" android:textColor="@color/text_primary" android:textSize="30sp" android:textStyle="bold" />
-        <TextView android:id="@+id/btnPlayerNext" android:layout_width="56dp" android:layout_height="match_parent" android:gravity="center" android:text="⏭" android:textColor="@color/text_primary" android:textSize="25sp" />
+        <ImageView android:id="@+id/btnPlayerPrevious" android:layout_width="56dp" android:layout_height="match_parent" android:padding="15dp" android:scaleType="centerInside" android:src="@drawable/ic_previous" />
+        <ImageView android:id="@+id/btnPlayerPlayPause" android:layout_width="60dp" android:layout_height="60dp" android:background="@drawable/bg_play_primary" android:padding="17dp" android:scaleType="centerInside" android:src="@drawable/ic_play_filled" />
+        <ImageView android:id="@+id/btnPlayerNext" android:layout_width="56dp" android:layout_height="match_parent" android:padding="15dp" android:scaleType="centerInside" android:src="@drawable/ic_next" />
         <TextView android:id="@+id/btnPlayerRepeat" android:layout_width="44dp" android:layout_height="match_parent" android:gravity="center" android:text="↻" android:textColor="@color/text_primary" android:textSize="19sp" />
     </LinearLayout>
 
