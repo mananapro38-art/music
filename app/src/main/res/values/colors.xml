@@ -22,4 +22,5 @@
     <color name="danger">#FF3B30</color>
     <color name="warning">#FF9500</color>
     <color name="overlay_glass">#20FFFFFF</color>
+    <color name="lyrics_glass">#B8FFFFFF</color>
 </resources>
