@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
@@ -23,6 +24,7 @@ import androidx.core.widget.NestedScrollView;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.nolimit.music.data.AutoBackupManager;
 import com.nolimit.music.data.DownloadQueueManager;
+import com.nolimit.music.ui.LiquidGlassOverlayView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -79,9 +81,17 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         BlurView bottom = activity.findViewById(R.id.bottomBlur);
         View mini = activity.findViewById(R.id.playerBar);
         if (target != null) {
-            configureBlur(activity, target, bottom, R.drawable.bg_bottom_nav, 28f);
-            if (mini instanceof BlurView) configureBlur(activity, target, (BlurView) mini, R.drawable.bg_glass_panel, 24f);
+            configureBlur(activity, target, bottom, R.drawable.bg_bottom_nav, 22f);
+            if (mini instanceof BlurView) configureBlur(activity, target, (BlurView) mini, R.drawable.bg_glass_panel, 20f);
         }
+
+        LiquidGlassOverlayView bottomOverlay = activity.findViewById(R.id.liquidBottomOverlay);
+        LiquidGlassOverlayView playerOverlay = activity.findViewById(R.id.liquidPlayerOverlay);
+        bindLiquidTouch(activity.findViewById(R.id.tabHome), bottomOverlay, activity.findViewById(R.id.bottomBlur));
+        bindLiquidTouch(activity.findViewById(R.id.tabSearch), bottomOverlay, activity.findViewById(R.id.bottomBlur));
+        bindLiquidTouch(activity.findViewById(R.id.tabPlaylist), bottomOverlay, activity.findViewById(R.id.bottomBlur));
+        bindLiquidTouch(activity.findViewById(R.id.tabSettings), bottomOverlay, activity.findViewById(R.id.bottomBlur));
+        bindLiquidTouch(mini, playerOverlay, mini);
     }
 
     private void configureBlur(Activity activity, BlurTarget target, BlurView blur, int fallbackBackground, float radius) {
@@ -98,6 +108,18 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         }
     }
 
+    private void bindLiquidTouch(View target, LiquidGlassOverlayView overlay, View glassRoot) {
+        if (target == null || overlay == null || glassRoot == null) return;
+        target.setOnTouchListener((v, event) -> {
+            float x = v.getX() + event.getX();
+            float y = v.getY() + event.getY();
+            if (v == glassRoot) { x = event.getX(); y = event.getY(); }
+            int action = event.getActionMasked();
+            overlay.setTouchHighlight(x, y, action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_MOVE);
+            return false;
+        });
+    }
+
     private void injectHomeActions(Activity activity) {
         NestedScrollView home = activity.findViewById(R.id.sectionHome);
         if (home == null || home.getChildCount() == 0 || !(home.getChildAt(0) instanceof LinearLayout)) return;
@@ -110,18 +132,18 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
 
         TextView recognize = actionCard(activity, "노래 찾기", R.drawable.ic_waveform);
         recognize.setOnClickListener(v -> activity.startActivity(new Intent(activity, MusicRecognitionActivity.class)));
-        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, dp(activity, 58), 1f);
-        left.setMarginEnd(dp(activity, 5));
+        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, dp(activity, 50), 1f);
+        left.setMarginEnd(dp(activity, 3));
         row.addView(recognize, left);
 
         TextView more = actionCard(activity, "보관함 · 더보기", R.drawable.ic_library);
         more.setOnClickListener(v -> showMoreSheet(activity));
         LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(0, dp(activity, 58), 1f);
-        right.setMarginStart(dp(activity, 5));
+        right.setMarginStart(dp(activity, 3));
         row.addView(more, right);
 
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(activity, 58));
-        lp.topMargin = dp(activity, 12);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(activity, 50));
+        lp.topMargin = dp(activity, 8);
         container.addView(row, Math.min(2, container.getChildCount()), lp);
     }
 
@@ -213,8 +235,8 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
     private static TextView actionCard(Activity a, String text, int icon) {
         TextView v = label(a, text, 13, true);
         v.setGravity(Gravity.CENTER_VERTICAL);
-        v.setPadding(dp(a, 14), 0, dp(a, 12), 0);
-        v.setCompoundDrawablePadding(dp(a, 8));
+        v.setPadding(dp(a, 10), 0, dp(a, 9), 0);
+        v.setCompoundDrawablePadding(dp(a, 6));
         v.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0);
         v.setBackgroundResource(R.drawable.bg_glass_panel);
         return v;
