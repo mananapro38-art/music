@@ -29,7 +29,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -52,6 +51,10 @@ public final class YoutubeRepository {
     // Current ytmusicapi "songs" search params (SearchMixin.get_search_params("songs")).
     private static final String YTM_SONGS_PARAMS = "EgWKAQIIAWoMEA4QChADEAQQCRAF";
     private static final String YTM_FALLBACK_API_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30";
+    // Known-good WEB_REMIX identity from current yt-dlp web_music client. This is
+    // used when music.youtube.com homepage bootstrap is blocked on-device.
+    private static final String YTM_KNOWN_GOOD_CLIENT_VERSION = "1.20260707.12.00";
+    private static final String YTM_WEB_REMIX_CLIENT_ID = "67";
     private static final String YTM_USER_AGENT =
             "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0";
     private static final String YTM_CONSENT_COOKIE = "SOCS=CAI";
@@ -272,9 +275,7 @@ public final class YoutubeRepository {
 
     private YtmConfig loadYtmConfig() {
         String apiKey = YTM_FALLBACK_API_KEY;
-        java.text.SimpleDateFormat date = new java.text.SimpleDateFormat("yyyyMMdd", Locale.US);
-        date.setTimeZone(TimeZone.getTimeZone("UTC"));
-        String version = "1." + date.format(new java.util.Date()) + ".01.00";
+        String version = YTM_KNOWN_GOOD_CLIENT_VERSION;
         String visitor = "";
         try {
             String page = readYtmUrl("https://music.youtube.com/");
@@ -328,8 +329,11 @@ public final class YoutubeRepository {
         conn.setRequestProperty("Origin", "https://music.youtube.com");
         conn.setRequestProperty("Referer", "https://music.youtube.com/");
         conn.setRequestProperty("Cookie", YTM_CONSENT_COOKIE);
-        // For anonymous WEB_REMIX requests the client identity lives in context.client.
-        // Avoid forcing stale numeric X-YouTube client headers that can disagree with it.
+        // Browser requests carry the same WEB_REMIX identity in both body context and
+        // client headers. Keep them synchronized; this also fixes devices where the
+        // server rejects header-less WEB_REMIX requests.
+        conn.setRequestProperty("X-YouTube-Client-Name", YTM_WEB_REMIX_CLIENT_ID);
+        conn.setRequestProperty("X-YouTube-Client-Version", config.clientVersion);
         if (config.visitorData != null && !config.visitorData.isEmpty()) {
             conn.setRequestProperty("X-Goog-Visitor-Id", config.visitorData);
         }
@@ -589,6 +593,11 @@ public final class YoutubeRepository {
         } catch (Exception ignored) {
             return 0L;
         }
+    }
+
+    public String getLastYtmError() {
+        return appContext.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_LAST_YTM_ERROR, "");
     }
 
     private void rememberYtmError(String error) {
