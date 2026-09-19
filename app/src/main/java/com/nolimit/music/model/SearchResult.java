@@ -1,5 +1,7 @@
 package com.nolimit.music.model;
 
+import com.nolimit.music.util.DisplayText;
+
 public final class SearchResult {
     public final String id;
     public final String title;
@@ -19,8 +21,8 @@ public final class SearchResult {
     public SearchResult(String id, String title, String channel, String url,
                         long durationSeconds, String thumbnail, int score, String badge, String album) {
         this.id = id;
-        this.title = title;
-        this.channel = channel;
+        this.title = DisplayText.cleanTitle(title);
+        this.channel = DisplayText.cleanArtist(channel);
         this.url = url;
         this.durationSeconds = durationSeconds;
         this.thumbnail = thumbnail;
