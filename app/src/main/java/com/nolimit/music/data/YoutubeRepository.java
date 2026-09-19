@@ -50,6 +50,9 @@ public final class YoutubeRepository {
     private static final String KEY_LAST_YTM_ERROR = "last_ytm_error";
     // Current ytmusicapi "songs" search params (SearchMixin.get_search_params("songs")).
     private static final String YTM_SONGS_PARAMS = "EgWKAQIIAWoMEA4QChADEAQQCRAF";
+    // Alternate Songs filter used by current Android YTM clients. Some regions/devices
+    // return an empty 200 response for the web filter but populate this one.
+    private static final String YTM_SONGS_PARAMS_ALT = "EgWKAQIIAWoKEAkQBRAKEAMQBA==";
     private static final String YTM_FALLBACK_API_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30";
     // Known-good WEB_REMIX identity from current yt-dlp web_music client. This is
     // used when music.youtube.com homepage bootstrap is blocked on-device.
@@ -215,37 +218,45 @@ public final class YoutubeRepository {
 
     private List<SearchResult> searchYoutubeMusicInnertube(String query, int limit) throws Exception {
         YtmConfig config = loadYtmConfig();
-        JSONObject client = new JSONObject()
-                .put("clientName", "WEB_REMIX")
-                .put("clientVersion", config.clientVersion)
-                .put("hl", "ko")
-                .put("gl", "KR");
-        JSONObject body = new JSONObject()
-                .put("context", new JSONObject()
-                        .put("client", client)
-                        .put("user", new JSONObject()))
-                .put("query", query)
-                .put("params", YTM_SONGS_PARAMS);
+        List<String> attempts = new ArrayList<>();
 
-        // Match current ytmusicapi anonymous search first: no API key is required.
-        String endpoint = "https://music.youtube.com/youtubei/v1/search?alt=json";
-        JSONObject response;
-        try {
-            response = new JSONObject(postJson(endpoint, body.toString(), config));
-        } catch (Exception anonymousError) {
-            // Compatibility fallback for deployments that still require the public web key.
-            String keyed = endpoint + "&key=" + URLEncoder.encode(config.apiKey, StandardCharsets.UTF_8);
+        // Use the keyed WEB_REMIX endpoint first. On some Android networks the anonymous
+        // endpoint returns HTTP 200 with only responseContext, which looked like success
+        // to the old code and prevented the keyed request from ever running.
+        String endpoint = "https://music.youtube.com/youtubei/v1/search?key="
+                + URLEncoder.encode(config.apiKey, StandardCharsets.UTF_8)
+                + "&prettyPrint=false";
+
+        String[] params = new String[]{YTM_SONGS_PARAMS_ALT, YTM_SONGS_PARAMS, ""};
+        String[] labels = new String[]{"songs-mobile", "songs-web", "unfiltered"};
+        for (int i = 0; i < params.length; i++) {
             try {
-                response = new JSONObject(postJson(keyed, body.toString(), config));
-            } catch (Exception keyedError) {
-                throw new IllegalStateException("anonymous=" + compactError(anonymousError)
-                        + " / keyed=" + compactError(keyedError), keyedError);
+                JSONObject client = new JSONObject()
+                        .put("clientName", "WEB_REMIX")
+                        .put("clientVersion", config.clientVersion)
+                        .put("hl", "ko")
+                        .put("gl", "KR");
+                if (config.visitorData != null && !config.visitorData.isEmpty()) {
+                    client.put("visitorData", config.visitorData);
+                }
+                JSONObject body = new JSONObject()
+                        .put("context", new JSONObject().put("client", client))
+                        .put("query", query);
+                if (!params[i].isEmpty()) body.put("params", params[i]);
+
+                JSONObject response = new JSONObject(postJson(endpoint, body.toString(), config));
+                List<SearchResult> out = new ArrayList<>();
+                Set<String> seen = new HashSet<>();
+                collectMusicResponsiveItems(response, out, seen, limit);
+                collectGenericVideoItems(response, out, seen, limit);
+                if (!out.isEmpty()) return out;
+
+                attempts.add(labels[i] + "=" + summarizeYtmResponse(response));
+            } catch (Exception e) {
+                attempts.add(labels[i] + "=" + compactError(e));
             }
         }
-        List<SearchResult> out = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
-        collectMusicResponsiveItems(response, out, seen, limit);
-        return out;
+        throw new IllegalStateException(String.join(" / ", attempts));
     }
 
     private List<SearchResult> searchYoutubeMusicPage(String query, int limit) throws Exception {
@@ -327,7 +338,9 @@ public final class YoutubeRepository {
         conn.setRequestProperty("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.7,en;q=0.5");
         conn.setRequestProperty("Content-Type", "application/json");
         conn.setRequestProperty("Origin", "https://music.youtube.com");
+        conn.setRequestProperty("X-Origin", "https://music.youtube.com");
         conn.setRequestProperty("Referer", "https://music.youtube.com/");
+        conn.setRequestProperty("X-Goog-Api-Format-Version", "1");
         conn.setRequestProperty("Cookie", YTM_CONSENT_COOKIE);
         // Browser requests carry the same WEB_REMIX identity in both body context and
         // client headers. Keep them synchronized; this also fixes devices where the
@@ -443,6 +456,81 @@ public final class YoutubeRepository {
                 collectMusicResponsiveItems(array.opt(i), out, seen, limit);
             }
         }
+    }
+
+    private static void collectGenericVideoItems(Object node, List<SearchResult> out,
+                                                 Set<String> seen, int limit) {
+        if (node == null || out.size() >= limit) return;
+        if (node instanceof JSONObject) {
+            JSONObject obj = (JSONObject) node;
+            String[] rendererKeys = new String[]{"playlistPanelVideoRenderer", "playlistVideoRenderer", "videoRenderer"};
+            for (String key : rendererKeys) {
+                JSONObject renderer = obj.optJSONObject(key);
+                if (renderer == null) continue;
+                SearchResult parsed = parseGenericVideoItem(renderer);
+                if (parsed != null && seen.add(parsed.id)) out.add(parsed);
+                if (out.size() >= limit) return;
+            }
+            java.util.Iterator<String> keys = obj.keys();
+            while (keys.hasNext() && out.size() < limit) {
+                collectGenericVideoItems(obj.opt(keys.next()), out, seen, limit);
+            }
+        } else if (node instanceof JSONArray) {
+            JSONArray array = (JSONArray) node;
+            for (int i = 0; i < array.length() && out.size() < limit; i++) {
+                collectGenericVideoItems(array.opt(i), out, seen, limit);
+            }
+        }
+    }
+
+    private static SearchResult parseGenericVideoItem(JSONObject renderer) {
+        String id = findVideoId(renderer);
+        if (id.length() != 11) return null;
+        String title = textFromRuns(renderer.optJSONObject("title"));
+        if (title.isEmpty()) title = textFromRuns(renderer.optJSONObject("headline"));
+        if (title.isEmpty()) return null;
+
+        String artist = "";
+        String album = "";
+        long duration = 0L;
+        String byline = textFromRuns(renderer.optJSONObject("longBylineText"));
+        if (byline.isEmpty()) byline = textFromRuns(renderer.optJSONObject("shortBylineText"));
+        if (byline.isEmpty()) byline = textFromRuns(renderer.optJSONObject("subtitle"));
+        if (!byline.isEmpty()) artist = byline;
+
+        String length = textFromRuns(renderer.optJSONObject("lengthText"));
+        if (!length.isEmpty()) duration = parseDurationText(length);
+        String thumbnail = findLargestThumbnail(renderer);
+        return new SearchResult(id, title, artist,
+                "https://www.youtube.com/watch?v=" + id,
+                duration, thumbnail, 170, "YouTube Music · 곡", album);
+    }
+
+    private static String summarizeYtmResponse(JSONObject response) {
+        if (response == null) return "null";
+        List<String> top = new ArrayList<>();
+        java.util.Iterator<String> keys = response.keys();
+        while (keys.hasNext() && top.size() < 6) top.add(keys.next());
+        int responsive = countJsonKey(response, "musicResponsiveListItemRenderer");
+        int panels = countJsonKey(response, "playlistPanelVideoRenderer");
+        int videos = countJsonKey(response, "playlistVideoRenderer") + countJsonKey(response, "videoRenderer");
+        return "keys=" + String.join(",", top)
+                + ", responsive=" + responsive + ", panel=" + panels + ", video=" + videos;
+    }
+
+    private static int countJsonKey(Object node, String wanted) {
+        if (node == null) return 0;
+        int count = 0;
+        if (node instanceof JSONObject) {
+            JSONObject obj = (JSONObject) node;
+            if (obj.has(wanted)) count++;
+            java.util.Iterator<String> keys = obj.keys();
+            while (keys.hasNext()) count += countJsonKey(obj.opt(keys.next()), wanted);
+        } else if (node instanceof JSONArray) {
+            JSONArray array = (JSONArray) node;
+            for (int i = 0; i < array.length(); i++) count += countJsonKey(array.opt(i), wanted);
+        }
+        return count;
     }
 
     private static SearchResult parseMusicResponsiveItem(JSONObject renderer) {
