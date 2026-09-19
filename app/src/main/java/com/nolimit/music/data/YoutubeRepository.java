@@ -48,7 +48,8 @@ public final class YoutubeRepository {
     public static final String KEY_FILTER_EXCLUDE_COVER = "filter_exclude_cover";
     public static final String KEY_FILTER_INCLUDE_REMIX = "filter_include_remix";
     private static final String KEY_LAST_YTM_ERROR = "last_ytm_error";
-    // Current ytmusicapi "songs" search params (SearchMixin.get_search_params("songs")).\n    private static final String YTM_SONGS_PARAMS = "EgWKAQIIAWoMEA4QChADEAQQCRAF";
+    // Current ytmusicapi "songs" search params (SearchMixin.get_search_params("songs")).
+    private static final String YTM_SONGS_PARAMS = "EgWKAQIIAWoMEA4QChADEAQQCRAF";
     private static final String YTM_FALLBACK_API_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30";
 
     private static final Pattern BC_ITEM = Pattern.compile("(?is)<li[^>]*class=\\\"[^\\\"]*searchresult[^\\\"]*\\\"[^>]*>(.*?)</li>");
