@@ -154,53 +154,52 @@ public final class YoutubeRepository {
 
     public List<SearchResult> searchYoutubeMusicSongs(String query, int limit) throws Exception {
         List<String> errors = new ArrayList<>();
+        List<SearchResult> merged = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        int target = Math.max(12, Math.min(limit, 30));
 
-        // 1) Direct WEB_REMIX catalogue search. This avoids relying on yt-dlp stdout
-        // formatting for music search and is the same public catalogue surface used by
-        // the YouTube Music web client.
+        // 1) Direct keyed WEB_REMIX catalogue search. Keep going when the first
+        // response is small: artist-name queries often need results from more than
+        // one YTM response shape/filter to expose the full song catalogue.
         try {
             List<SearchResult> direct = searchYoutubeMusicInnertube(query, limit);
-            if (!direct.isEmpty()) {
-                rememberYtmError("");
-                return tagResults(MusicRanker.rank(direct, query), "", "YouTube Music");
-            }
-            errors.add("WEB_REMIX: 결과 없음");
+            appendUnique(merged, seen, direct, limit);
+            if (direct.isEmpty()) errors.add("WEB_REMIX: 결과 없음");
         } catch (Exception e) {
             errors.add("WEB_REMIX: " + compactError(e));
         }
 
-        // 2) Parse the same YouTube Music search page as a second first-party path.
-        // This is useful when youtubei accepts the request but changes its response shell,
-        // or when a device/network gives the web page a usable visitor context first.
-        try {
-            List<SearchResult> page = searchYoutubeMusicPage(query, limit);
-            if (!page.isEmpty()) {
-                rememberYtmError(String.join(" | ", errors));
-                return tagResults(MusicRanker.rank(page, query), "", "YouTube Music");
+        // 2) Page parse only when the API batch is still sparse.
+        if (merged.size() < target) {
+            try {
+                List<SearchResult> page = searchYoutubeMusicPage(query, limit);
+                appendUnique(merged, seen, page, limit);
+                if (page.isEmpty()) errors.add("YTM page: 결과 없음");
+            } catch (Exception e) {
+                errors.add("YTM page: " + compactError(e));
             }
-            errors.add("YTM page: 결과 없음");
-        } catch (Exception e) {
-            errors.add("YTM page: " + compactError(e));
         }
 
-        // 3) yt-dlp's dedicated YoutubeMusicSearchURLIE. Keep this as compatibility,
-        // but cap retries/timeouts so a broken extractor cannot make Search appear frozen.
-        try {
-            String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
-            String filteredUrl = "https://music.youtube.com/search?q=" + encoded
-                    + "&sp=" + URLEncoder.encode(YTM_SONGS_PARAMS, StandardCharsets.UTF_8);
-            List<SearchResult> extracted = executeFlatSearch(filteredUrl, limit);
-            if (!extracted.isEmpty()) {
-                rememberYtmError(String.join(" | ", errors));
-                return tagResults(MusicRanker.rank(extracted, query), "", "YouTube Music");
+        // 3) yt-dlp compatibility path, again only to fill a sparse catalogue.
+        if (merged.size() < target) {
+            try {
+                String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
+                String filteredUrl = "https://music.youtube.com/search?q=" + encoded
+                        + "&sp=" + URLEncoder.encode(YTM_SONGS_PARAMS, StandardCharsets.UTF_8);
+                List<SearchResult> extracted = executeFlatSearch(filteredUrl, limit);
+                appendUnique(merged, seen, extracted, limit);
+                if (extracted.isEmpty()) errors.add("yt-dlp: 결과 없음");
+            } catch (Exception e) {
+                errors.add("yt-dlp: " + compactError(e));
             }
-            errors.add("yt-dlp: 결과 없음");
-        } catch (Exception e) {
-            errors.add("yt-dlp: " + compactError(e));
         }
 
-        // 4) Never strand the user on an empty page. Use ordinary YouTube but keep the
-        // same strong audio-first ranking and clearly label this as a fallback.
+        if (!merged.isEmpty()) {
+            rememberYtmError(String.join(" | ", errors));
+            return tagResults(MusicRanker.rank(merged, query), "", "YouTube Music");
+        }
+
+        // 4) Last resort only: ordinary YouTube, clearly labelled as fallback.
         try {
             List<SearchResult> fallback = searchYoutube(query + " official audio", limit);
             if (!fallback.isEmpty()) {
@@ -219,14 +218,17 @@ public final class YoutubeRepository {
     private List<SearchResult> searchYoutubeMusicInnertube(String query, int limit) throws Exception {
         YtmConfig config = loadYtmConfig();
         List<String> attempts = new ArrayList<>();
+        List<SearchResult> merged = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        int batchLimit = Math.max(limit, 40);
 
-        // Use the keyed WEB_REMIX endpoint first. On some Android networks the anonymous
-        // endpoint returns HTTP 200 with only responseContext, which looked like success
-        // to the old code and prevented the keyed request from ever running.
         String endpoint = "https://music.youtube.com/youtubei/v1/search?key="
                 + URLEncoder.encode(config.apiKey, StandardCharsets.UTF_8)
                 + "&prettyPrint=false";
 
+        // Try both known Songs filters plus unfiltered search and merge them.
+        // Do not stop at the first six results: that was the reason artist searches
+        // such as "로이킴" looked artificially tiny.
         String[] params = new String[]{YTM_SONGS_PARAMS_ALT, YTM_SONGS_PARAMS, ""};
         String[] labels = new String[]{"songs-mobile", "songs-web", "unfiltered"};
         for (int i = 0; i < params.length; i++) {
@@ -245,17 +247,23 @@ public final class YoutubeRepository {
                 if (!params[i].isEmpty()) body.put("params", params[i]);
 
                 JSONObject response = new JSONObject(postJson(endpoint, body.toString(), config));
-                List<SearchResult> out = new ArrayList<>();
-                Set<String> seen = new HashSet<>();
-                collectMusicResponsiveItems(response, out, seen, limit);
-                collectGenericVideoItems(response, out, seen, limit);
-                if (!out.isEmpty()) return out;
+                List<SearchResult> batch = new ArrayList<>();
+                Set<String> batchSeen = new HashSet<>();
+                collectMusicResponsiveItems(response, batch, batchSeen, batchLimit);
 
-                attempts.add(labels[i] + "=" + summarizeYtmResponse(response));
+                // Generic YouTube renderers are only a rescue path for unfiltered
+                // responses. They are marked as video/other, never as catalog audio.
+                if (batch.isEmpty() && params[i].isEmpty()) {
+                    collectGenericVideoItems(response, batch, batchSeen, batchLimit);
+                }
+                appendUnique(merged, seen, batch, Math.max(limit * 2, 60));
+                attempts.add(labels[i] + "=" + batch.size());
             } catch (Exception e) {
                 attempts.add(labels[i] + "=" + compactError(e));
             }
         }
+
+        if (!merged.isEmpty()) return merged;
         throw new IllegalStateException(String.join(" / ", attempts));
     }
 
@@ -503,7 +511,7 @@ public final class YoutubeRepository {
         String thumbnail = findLargestThumbnail(renderer);
         return new SearchResult(id, title, artist,
                 "https://www.youtube.com/watch?v=" + id,
-                duration, thumbnail, 170, "YouTube Music · 곡", album);
+                duration, thumbnail, 40, "YTM_OTHER", album);
     }
 
     private static String summarizeYtmResponse(JSONObject response) {
@@ -537,27 +545,46 @@ public final class YoutubeRepository {
         String id = findVideoId(renderer);
         if (id.isEmpty() || id.length() != 11) return null;
 
+        String videoType = findStringValue(renderer, "musicVideoType");
+        String normalizedType = lower(videoType);
+        if (normalizedType.contains("podcast_episode")) return null;
+
         List<String> primary = extractTextRuns(renderer.optJSONArray("flexColumns"), 0);
         List<String> secondary = extractTextRuns(renderer.optJSONArray("flexColumns"), 1);
         if (primary.isEmpty()) return null;
 
         String title = firstMeaningful(primary);
-        String artist = "";
-        String album = "";
+        String artist = findFlexRunByBrowsePrefix(renderer.optJSONArray("flexColumns"), 1, "UC");
+        String album = findFlexRunByBrowsePrefix(renderer.optJSONArray("flexColumns"), 1, "MPRE");
         long duration = 0L;
 
         List<String> metadata = new ArrayList<>();
+        boolean episodeLike = false;
         for (String s : secondary) {
             String t = s == null ? "" : s.trim();
             if (t.isEmpty() || "•".equals(t) || "·".equals(t)) continue;
+            String lt = lower(t);
             if (t.matches("\\d{1,2}:\\d{2}(?::\\d{2})?")) {
                 duration = parseDurationText(t);
                 continue;
             }
+            if (isYtmTypeLabel(lt)) {
+                if (containsAny(lt, "episode", "에피소드", "podcast", "팟캐스트")) episodeLike = true;
+                continue;
+            }
             metadata.add(t);
         }
-        if (!metadata.isEmpty()) artist = metadata.get(0);
-        if (metadata.size() >= 2) album = metadata.get(1);
+        if (episodeLike) return null;
+
+        if (artist.isEmpty() && !metadata.isEmpty()) artist = metadata.get(0);
+        if (album.isEmpty()) {
+            for (String candidate : metadata) {
+                if (!candidate.equals(artist)) {
+                    album = candidate;
+                    break;
+                }
+            }
+        }
 
         if (duration == 0L) {
             List<String> fixed = extractTextRuns(renderer.optJSONArray("fixedColumns"), 0);
@@ -570,24 +597,90 @@ public final class YoutubeRepository {
         }
 
         String thumbnail = findLargestThumbnail(renderer);
+        boolean audioTrack = normalizedType.contains("music_video_type_atv");
+        boolean musicVideo = normalizedType.contains("music_video_type_omv")
+                || normalizedType.contains("music_video_type_ugc");
+
+        String badge = audioTrack ? "YTM_AUDIO" : (musicVideo ? "YTM_VIDEO" : "YTM_OTHER");
+        int baseScore = audioTrack ? 360 : (musicVideo ? 120 : 60);
         return new SearchResult(id, title, artist,
                 "https://www.youtube.com/watch?v=" + id,
-                duration, thumbnail, 220, "YouTube Music · 곡", album);
+                duration, thumbnail, baseScore, badge, album);
     }
 
     private static SearchResult parseMusicTwoRowItem(JSONObject renderer) {
         String id = findVideoId(renderer);
         if (id.isEmpty() || id.length() != 11) return null;
+        String videoType = findStringValue(renderer, "musicVideoType");
+        String normalizedType = lower(videoType);
+        if (normalizedType.contains("podcast_episode")) return null;
+
         String title = textFromRuns(renderer.optJSONObject("title"));
         String subtitle = textFromRuns(renderer.optJSONObject("subtitle"));
         if (title.isEmpty()) return null;
         String artist = subtitle;
         int dot = subtitle.indexOf(" • ");
         if (dot > 0) artist = subtitle.substring(0, dot).trim();
+
         String thumbnail = findLargestThumbnail(renderer);
+        boolean audioTrack = normalizedType.contains("music_video_type_atv");
+        String badge = audioTrack ? "YTM_AUDIO" : "YTM_VIDEO";
+        int baseScore = audioTrack ? 330 : 100;
         return new SearchResult(id, title, artist,
                 "https://www.youtube.com/watch?v=" + id,
-                0L, thumbnail, 180, "YouTube Music · 곡", "");
+                0L, thumbnail, baseScore, badge, "");
+    }
+
+    private static String findFlexRunByBrowsePrefix(JSONArray columns, int index, String prefix) {
+        if (columns == null || index < 0 || index >= columns.length()) return "";
+        JSONObject wrapper = columns.optJSONObject(index);
+        if (wrapper == null) return "";
+        JSONObject column = wrapper.optJSONObject("musicResponsiveListItemFlexColumnRenderer");
+        if (column == null) column = wrapper.optJSONObject("musicResponsiveListItemFixedColumnRenderer");
+        if (column == null) return "";
+        JSONObject text = column.optJSONObject("text");
+        JSONArray runs = text == null ? null : text.optJSONArray("runs");
+        if (runs == null) return "";
+        for (int i = 0; i < runs.length(); i++) {
+            JSONObject run = runs.optJSONObject(i);
+            if (run == null) continue;
+            JSONObject nav = run.optJSONObject("navigationEndpoint");
+            JSONObject browse = nav == null ? null : nav.optJSONObject("browseEndpoint");
+            String browseId = browse == null ? "" : browse.optString("browseId", "");
+            if (browseId.startsWith(prefix)) return run.optString("text", "").trim();
+        }
+        return "";
+    }
+
+    private static boolean isYtmTypeLabel(String value) {
+        return containsAny(value,
+                "song", "songs", "곡", "노래",
+                "video", "videos", "동영상",
+                "episode", "episodes", "에피소드",
+                "podcast", "팟캐스트");
+    }
+
+    private static String findStringValue(Object node, String wantedKey) {
+        if (node == null) return "";
+        if (node instanceof JSONObject) {
+            JSONObject obj = (JSONObject) node;
+            if (obj.has(wantedKey)) {
+                String value = obj.optString(wantedKey, "");
+                if (!value.isEmpty()) return value;
+            }
+            java.util.Iterator<String> keys = obj.keys();
+            while (keys.hasNext()) {
+                String value = findStringValue(obj.opt(keys.next()), wantedKey);
+                if (!value.isEmpty()) return value;
+            }
+        } else if (node instanceof JSONArray) {
+            JSONArray array = (JSONArray) node;
+            for (int i = 0; i < array.length(); i++) {
+                String value = findStringValue(array.opt(i), wantedKey);
+                if (!value.isEmpty()) return value;
+            }
+        }
+        return "";
     }
 
     private static String textFromRuns(JSONObject textObject) {
