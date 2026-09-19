@@ -1,5 +1,7 @@
 package com.nolimit.music.model;
 
+import com.nolimit.music.util.DisplayText;
+
 public final class Track {
     public final String id;
     public final String title;
@@ -43,8 +45,8 @@ public final class Track {
                  boolean liked, int playCount, long lastPlayedAt, String thumbnailUrl,
                  String album, String tags, String sourceUrl, String sourceName) {
         this.id = id == null ? "" : id;
-        this.title = title == null ? "" : title;
-        this.artist = artist == null ? "" : artist;
+        this.title = DisplayText.cleanTitle(title);
+        this.artist = DisplayText.cleanArtist(artist);
         this.path = path == null ? "" : path;
         this.durationSeconds = durationSeconds;
         this.addedAt = addedAt;
