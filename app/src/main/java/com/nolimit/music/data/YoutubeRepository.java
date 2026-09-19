@@ -29,6 +29,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -51,6 +52,11 @@ public final class YoutubeRepository {
     // Current ytmusicapi "songs" search params (SearchMixin.get_search_params("songs")).
     private static final String YTM_SONGS_PARAMS = "EgWKAQIIAWoMEA4QChADEAQQCRAF";
     private static final String YTM_FALLBACK_API_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30";
+    private static final String YTM_USER_AGENT =
+            "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0";
+    private static final String YTM_CONSENT_COOKIE = "SOCS=CAI";
+    private static final Pattern YTCFG_SET = Pattern.compile(
+            "(?s)ytcfg\\.set\\s*\\(\\s*(\\{.+?\\})\\s*\\)\\s*;");
 
     private static final Pattern BC_ITEM = Pattern.compile("(?is)<li[^>]*class=\\\"[^\\\"]*searchresult[^\\\"]*\\\"[^>]*>(.*?)</li>");
     private static final Pattern BC_HEADING = Pattern.compile("(?is)<div[^>]*class=\\\"heading\\\"[^>]*>.*?<a[^>]*href=\\\"([^\\\"]+)\\\"[^>]*>(.*?)</a>");
@@ -157,15 +163,27 @@ public final class YoutubeRepository {
             errors.add("WEB_REMIX: " + compactError(e));
         }
 
-        // 2) yt-dlp's dedicated YoutubeMusicSearchURLIE.
+        // 2) Parse the same YouTube Music search page as a second first-party path.
+        // This is useful when youtubei accepts the request but changes its response shell,
+        // or when a device/network gives the web page a usable visitor context first.
+        try {
+            List<SearchResult> page = searchYoutubeMusicPage(query, limit);
+            if (!page.isEmpty()) {
+                rememberYtmError(String.join(" | ", errors));
+                return tagResults(MusicRanker.rank(page, query), "", "YouTube Music");
+            }
+            errors.add("YTM page: 결과 없음");
+        } catch (Exception e) {
+            errors.add("YTM page: " + compactError(e));
+        }
+
+        // 3) yt-dlp's dedicated YoutubeMusicSearchURLIE. Keep this as compatibility,
+        // but cap retries/timeouts so a broken extractor cannot make Search appear frozen.
         try {
             String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
             String filteredUrl = "https://music.youtube.com/search?q=" + encoded
                     + "&sp=" + URLEncoder.encode(YTM_SONGS_PARAMS, StandardCharsets.UTF_8);
             List<SearchResult> extracted = executeFlatSearch(filteredUrl, limit);
-            if (extracted.isEmpty()) {
-                extracted = executeFlatSearch("https://music.youtube.com/search?q=" + encoded + "#songs", limit);
-            }
             if (!extracted.isEmpty()) {
                 rememberYtmError(String.join(" | ", errors));
                 return tagResults(MusicRanker.rank(extracted, query), "", "YouTube Music");
@@ -175,7 +193,7 @@ public final class YoutubeRepository {
             errors.add("yt-dlp: " + compactError(e));
         }
 
-        // 3) Never strand the user on an empty page. Use ordinary YouTube but keep the
+        // 4) Never strand the user on an empty page. Use ordinary YouTube but keep the
         // same strong audio-first ranking and clearly label this as a fallback.
         try {
             List<SearchResult> fallback = searchYoutube(query + " official audio", limit);
@@ -227,6 +245,20 @@ public final class YoutubeRepository {
         return out;
     }
 
+    private List<SearchResult> searchYoutubeMusicPage(String query, int limit) throws Exception {
+        String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
+        String url = "https://music.youtube.com/search?q=" + encoded
+                + "&sp=" + URLEncoder.encode(YTM_SONGS_PARAMS, StandardCharsets.UTF_8);
+        String page = readYtmUrl(url);
+        String json = extractAssignedJson(page, "ytInitialData");
+        if (json.isEmpty()) throw new IllegalStateException("ytInitialData 없음");
+        JSONObject response = new JSONObject(json);
+        List<SearchResult> out = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        collectMusicResponsiveItems(response, out, seen, limit);
+        return out;
+    }
+
     private static final class YtmConfig {
         final String apiKey;
         final String clientVersion;
@@ -240,11 +272,26 @@ public final class YoutubeRepository {
 
     private YtmConfig loadYtmConfig() {
         String apiKey = YTM_FALLBACK_API_KEY;
-        String version = "1." + new java.text.SimpleDateFormat("yyyyMMdd", Locale.US)
-                .format(new java.util.Date()) + ".01.00";
+        java.text.SimpleDateFormat date = new java.text.SimpleDateFormat("yyyyMMdd", Locale.US);
+        date.setTimeZone(TimeZone.getTimeZone("UTC"));
+        String version = "1." + date.format(new java.util.Date()) + ".01.00";
         String visitor = "";
         try {
-            String page = readUrl("https://music.youtube.com/");
+            String page = readYtmUrl("https://music.youtube.com/");
+
+            // ytmusicapi gets anonymous visitor context from ytcfg.set(...).
+            // Parse that object first instead of depending on a single raw string layout.
+            Matcher ytcfg = YTCFG_SET.matcher(page);
+            while (ytcfg.find()) {
+                try {
+                    JSONObject cfg = new JSONObject(ytcfg.group(1));
+                    apiKey = firstNonEmpty(cfg.optString("INNERTUBE_API_KEY"), apiKey);
+                    version = firstNonEmpty(cfg.optString("INNERTUBE_CLIENT_VERSION"), version);
+                    visitor = firstNonEmpty(cfg.optString("VISITOR_DATA"), visitor);
+                } catch (Exception ignored) { }
+            }
+
+            // Keep loose fallbacks for page variants that inline the values elsewhere.
             apiKey = firstRegex(page,
                     "\\\"INNERTUBE_API_KEY\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"",
                     apiKey);
@@ -253,7 +300,7 @@ public final class YoutubeRepository {
                     version);
             visitor = firstRegex(page,
                     "\\\"VISITOR_DATA\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"",
-                    "");
+                    visitor);
         } catch (Exception ignored) { }
         return new YtmConfig(apiKey, version, visitor);
     }
@@ -269,19 +316,20 @@ public final class YoutubeRepository {
 
     private static String postJson(String url, String json, YtmConfig config) throws Exception {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(22000);
+        conn.setConnectTimeout(12000);
+        conn.setReadTimeout(18000);
         conn.setInstanceFollowRedirects(true);
         conn.setRequestMethod("POST");
         conn.setDoOutput(true);
-        conn.setRequestProperty("User-Agent",
-                "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Mobile Safari/537.36");
+        conn.setRequestProperty("User-Agent", YTM_USER_AGENT);
         conn.setRequestProperty("Accept", "*/*");
+        conn.setRequestProperty("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.7,en;q=0.5");
         conn.setRequestProperty("Content-Type", "application/json");
         conn.setRequestProperty("Origin", "https://music.youtube.com");
         conn.setRequestProperty("Referer", "https://music.youtube.com/");
-        conn.setRequestProperty("X-YouTube-Client-Name", "67");
-        conn.setRequestProperty("X-YouTube-Client-Version", config.clientVersion);
+        conn.setRequestProperty("Cookie", YTM_CONSENT_COOKIE);
+        // For anonymous WEB_REMIX requests the client identity lives in context.client.
+        // Avoid forcing stale numeric X-YouTube client headers that can disagree with it.
         if (config.visitorData != null && !config.visitorData.isEmpty()) {
             conn.setRequestProperty("X-Goog-Visitor-Id", config.visitorData);
         }
@@ -303,6 +351,65 @@ public final class YoutubeRepository {
             throw new IllegalStateException("HTTP " + code + (sample.isEmpty() ? "" : " · " + sample));
         }
         return body.toString();
+    }
+
+    private static String readYtmUrl(String url) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setConnectTimeout(12000);
+        conn.setReadTimeout(18000);
+        conn.setInstanceFollowRedirects(true);
+        conn.setRequestProperty("User-Agent", YTM_USER_AGENT);
+        conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8");
+        conn.setRequestProperty("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.7,en;q=0.5");
+        conn.setRequestProperty("Cookie", YTM_CONSENT_COOKIE);
+        try {
+            int code = conn.getResponseCode();
+            InputStream in = code >= 200 && code < 400 ? conn.getInputStream() : conn.getErrorStream();
+            if (in == null) throw new IllegalStateException("HTTP " + code);
+            StringBuilder body = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) body.append(line).append('\n');
+            }
+            if (code < 200 || code >= 400) throw new IllegalStateException("HTTP " + code);
+            return body.toString();
+        } finally {
+            conn.disconnect();
+        }
+    }
+
+    private static String extractAssignedJson(String text, String marker) {
+        if (text == null || text.isEmpty() || marker == null || marker.isEmpty()) return "";
+        int from = 0;
+        while (from < text.length()) {
+            int markerAt = text.indexOf(marker, from);
+            if (markerAt < 0) return "";
+            int start = text.indexOf('{', markerAt + marker.length());
+            if (start < 0) return "";
+
+            int depth = 0;
+            boolean quoted = false;
+            boolean escaped = false;
+            for (int i = start; i < text.length(); i++) {
+                char ch = text.charAt(i);
+                if (quoted) {
+                    if (escaped) escaped = false;
+                    else if (ch == '\\') escaped = true;
+                    else if (ch == '"') quoted = false;
+                    continue;
+                }
+                if (ch == '"') {
+                    quoted = true;
+                } else if (ch == '{') {
+                    depth++;
+                } else if (ch == '}') {
+                    depth--;
+                    if (depth == 0) return text.substring(start, i + 1);
+                }
+            }
+            from = markerAt + marker.length();
+        }
+        return "";
     }
 
     private static void collectMusicResponsiveItems(Object node, List<SearchResult> out,
@@ -569,6 +676,8 @@ public final class YoutubeRepository {
         request.addOption("--no-warnings");
         request.addOption("--ignore-errors");
         request.addOption("--playlist-items", "1:" + Math.max(1, limit));
+        request.addOption("--socket-timeout", "12");
+        request.addOption("--retries", "1");
         request.addOption("--remote-components", "ejs:github");
         String out = YoutubeDL.getInstance().execute(request).getOut();
         List<SearchResult> results = new ArrayList<>();
@@ -621,7 +730,8 @@ public final class YoutubeRepository {
             String title = lower(item.title);
             String channel = lower(item.channel);
             boolean directCreatorPlatform = item.id.startsWith("sc_") || item.id.startsWith("au_") || item.id.startsWith("bc_");
-            if (officialOnly && !directCreatorPlatform && !isOfficialCandidate(title, channel)) continue;
+            boolean ytmCatalogSong = item.badge != null && item.badge.contains("YouTube Music");
+            if (officialOnly && !directCreatorPlatform && !ytmCatalogSong && !isOfficialCandidate(title, channel)) continue;
             if (excludeLive && containsAny(title, " live", "live ", "concert", "performance", "직캠", "fancam")) continue;
             if (excludeCover && containsAny(title, "cover", "커버", "reaction", "리액션")) continue;
             if (!includeRemix && !queryWantsRemix && containsAny(title, "remix", "리믹스", "sped up", "slowed", "nightcore")) continue;
