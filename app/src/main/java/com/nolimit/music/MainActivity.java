@@ -3,6 +3,8 @@ package com.nolimit.music;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -54,6 +56,7 @@ import com.nolimit.music.model.Playlist;
 import com.nolimit.music.model.SearchResult;
 import com.nolimit.music.model.Track;
 import com.nolimit.music.playback.PlaybackService;
+import com.nolimit.music.ui.AmbientBackdropView;
 import com.nolimit.music.ui.PlaylistAdapter;
 import com.nolimit.music.ui.SearchResultAdapter;
 import com.nolimit.music.util.ArtworkLoader;
@@ -109,6 +112,7 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout playlistFolders;
     private View playerBar;
     private ImageView nowArtwork;
+    private AmbientBackdropView ambientBackdrop;
     private SeekBar playerSeek;
     private Spinner chartCategorySpinner, chartCountrySpinner;
     private MaterialSwitch autoplaySwitch, mobileDownloadSwitch;
@@ -122,6 +126,7 @@ public final class MainActivity extends AppCompatActivity {
     private volatile boolean djLoading = false;
     private boolean userSeeking = false;
     private boolean suppressSettingCallbacks = false;
+    private String ambientTrackId = "";
 
     private final DownloadQueueManager.Listener downloadListener = new DownloadQueueManager.Listener() {
         @Override public void onQueueChanged() { refreshAll(); }
@@ -183,6 +188,7 @@ public final class MainActivity extends AppCompatActivity {
     private void bindViews() {
         searchInput=findViewById(R.id.etSearch); searchButton=findViewById(R.id.btnSearch); searchProgress=findViewById(R.id.progressSearch); engineStatus=findViewById(R.id.tvEngineStatus);
         playlistCount=findViewById(R.id.tvPlaylistCount); playlistTitle=findViewById(R.id.tvPlaylistTitle); playlistFolders=findViewById(R.id.playlistFolders); playerBar=findViewById(R.id.playerBar);
+        ambientBackdrop=findViewById(R.id.ambientBackdrop);
         nowArtwork=findViewById(R.id.ivNowArtwork); nowPlaying=findViewById(R.id.tvNowPlaying); nowArtist=findViewById(R.id.tvNowArtist); playPause=findViewById(R.id.btnPlayPause);
         playerSeek=findViewById(R.id.playerSeek); currentTime=findViewById(R.id.tvCurrentTime); totalTime=findViewById(R.id.tvDuration); chartStatus=findViewById(R.id.tvChartStatus);
         chartBrowserStatus=findViewById(R.id.tvChartBrowserStatus); djStatus=findViewById(R.id.tvDjStatus); recentCount=findViewById(R.id.tvRecentCount); likedCount=findViewById(R.id.tvLikedCount); mostPlayedCount=findViewById(R.id.tvMostPlayedCount);
@@ -293,7 +299,54 @@ public final class MainActivity extends AppCompatActivity {
     private void playQueue(List<Track> source,String startId){if(controller==null){toast("플레이어를 연결하는 중입니다.");return;}List<MediaItem>items=new ArrayList<>();int start=0;for(Track t:source){if(!TrackStorage.exists(this,t.path))continue;if(startId!=null&&startId.equals(t.id))start=items.size();items.add(toMediaItem(t));}if(items.isEmpty()){toast("재생할 저장 곡이 없습니다.");return;}controller.setMediaItems(items,Math.min(start,items.size()-1),0L);controller.prepare();controller.play();syncPlayerUi();}
     private void addToQueue(Track t,boolean next){if(controller==null||!TrackStorage.exists(this,t.path)){toast("먼저 곡을 저장해 주세요.");return;}MediaItem item=toMediaItem(t);if(next){int pos=Math.max(0,controller.getCurrentMediaItemIndex()+1);controller.addMediaItem(Math.min(pos,controller.getMediaItemCount()),item);toast("다음 곡으로 추가했습니다.");}else{controller.addMediaItem(item);toast("대기열 마지막에 추가했습니다.");}}
 
-    private void syncPlayerUi(){if(controller==null||controller.getMediaItemCount()==0){playerBar.setVisibility(View.GONE);playerSeek.setProgress(0);currentTime.setText("0:00");totalTime.setText("0:00");nowArtwork.setImageResource(R.drawable.ic_music_note);return;}playerBar.setVisibility(View.VISIBLE);MediaMetadata m=controller.getMediaMetadata();nowPlaying.setText(m.title==null?"재생 중":m.title);nowArtist.setText(m.artist==null?"":m.artist);playPause.setText(controller.isPlaying()?"Ⅱ":"▶");MediaItem item=controller.getCurrentMediaItem();Track t=item==null?null:library.find(item.mediaId);if(t!=null)ArtworkLoader.load(nowArtwork,this,t.id,t.thumbnailUrl);else nowArtwork.setImageResource(R.drawable.ic_music_note);updatePlayerProgress();}
+    private void syncPlayerUi(){
+        if(controller==null||controller.getMediaItemCount()==0){
+            playerBar.setVisibility(View.GONE);
+            playerSeek.setProgress(0);
+            currentTime.setText("0:00");
+            totalTime.setText("0:00");
+            nowArtwork.setImageResource(R.drawable.ic_music_note);
+            ambientTrackId="";
+            if(ambientBackdrop!=null) ambientBackdrop.setColors(
+                    ContextCompat.getColor(this,R.color.accent),
+                    ContextCompat.getColor(this,R.color.tertiary));
+            return;
+        }
+        playerBar.setVisibility(View.VISIBLE);
+        MediaMetadata m=controller.getMediaMetadata();
+        nowPlaying.setText(m.title==null?"재생 중":m.title);
+        nowArtist.setText(m.artist==null?"":m.artist);
+        playPause.setText(controller.isPlaying()?"Ⅱ":"▶");
+        MediaItem item=controller.getCurrentMediaItem();
+        Track t=item==null?null:library.find(item.mediaId);
+        if(t!=null){
+            ArtworkLoader.load(nowArtwork,this,t.id,t.thumbnailUrl);
+            updateAmbientForTrack(t);
+        }else{
+            nowArtwork.setImageResource(R.drawable.ic_music_note);
+        }
+        updatePlayerProgress();
+    }
+
+    private void updateAmbientForTrack(Track track){
+        if(ambientBackdrop==null||track==null||track.id.equals(ambientTrackId)) return;
+        ambientTrackId=track.id;
+        String source=ArtworkLoader.bestSource(this,track.id,track.thumbnailUrl);
+        io.execute(()->{
+            Bitmap bitmap=ArtworkLoader.loadBitmapBlocking(this,source);
+            if(bitmap==null) return;
+            Bitmap tiny=Bitmap.createScaledBitmap(bitmap,1,1,true);
+            int primary=tiny.getPixel(0,0);
+            if(tiny!=bitmap) tiny.recycle();
+            float[] hsv=new float[3];
+            Color.colorToHSV(primary,hsv);
+            hsv[0]=(hsv[0]+36f)%360f;
+            hsv[1]=Math.max(.36f,Math.min(.82f,hsv[1]*.9f+.08f));
+            hsv[2]=Math.max(.48f,Math.min(.92f,hsv[2]*1.06f));
+            int secondary=Color.HSVToColor(hsv);
+            runOnUiThread(()->{if(ambientBackdrop!=null)ambientBackdrop.setColors(primary,secondary);});
+        });
+    }
     private long effectiveDurationMs(){if(controller==null)return 0L;long d=controller.getDuration();if(d!=C.TIME_UNSET&&d>0)return d;MediaItem i=controller.getCurrentMediaItem();if(i!=null){Track t=library.find(i.mediaId);if(t!=null&&t.durationSeconds>0)return t.durationSeconds*1000L;}return 0L;}
     private void updatePlayerProgress(){if(controller==null||playerBar==null||playerBar.getVisibility()!=View.VISIBLE)return;long d=effectiveDurationMs(),p=Math.max(0L,controller.getCurrentPosition());totalTime.setText(formatTime(d));if(!userSeeking){currentTime.setText(formatTime(p));playerSeek.setProgress(d>0?(int)Math.min(1000L,p*1000L/d):0);}}
     private static String formatTime(long ms){if(ms<=0)return"0:00";long s=ms/1000L,h=s/3600L,m=(s%3600L)/60L,sec=s%60L;return h>0?String.format(Locale.ROOT,"%d:%02d:%02d",h,m,sec):String.format(Locale.ROOT,"%d:%02d",m,sec);}
