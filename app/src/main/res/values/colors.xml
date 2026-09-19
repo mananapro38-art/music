@@ -12,14 +12,14 @@
     <color name="accent_soft">#FFE7ED</color>
     <color name="accent_on">#FFFFFF</color>
     <color name="tertiary">#AF52DE</color>
-    <color name="nav_surface">#A3FFFFFF</color>
+    <color name="nav_surface">#70FFFFFF</color>
     <color name="nav_border">#9AFFFFFF</color>
-    <color name="nav_active">#33FF2D55</color>
+    <color name="nav_active">#2EFF2D55</color>
     <color name="nav_icon">#1C1C1E</color>
     <color name="widget_surface">#EFFFFFFF</color>
     <color name="widget_border">#33FFFFFF</color>
     <color name="success">#34C759</color>
     <color name="danger">#FF3B30</color>
     <color name="warning">#FF9500</color>
-    <color name="overlay_glass">#33FFFFFF</color>
+    <color name="overlay_glass">#20FFFFFF</color>
 </resources>
