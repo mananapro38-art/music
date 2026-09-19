@@ -279,7 +279,50 @@ public final class MainActivity extends AppCompatActivity {
 
     private void runDj(){String prompt=djPrompt.getText().toString().trim();if(TextUtils.isEmpty(prompt)){djPrompt.setError("예: 새벽에 들을 잔잔한 한국 노래");return;}if(!engineReady){toast("음악 엔진을 준비하는 중입니다.");return;}if(djLoading)return;djLoading=true;djGenerate.setEnabled(false);djStatus.setText("DJ가 취향과 요청을 분석하는 중…");djAdapter.submit(Collections.emptyList());io.execute(()->{try{List<Track>local=library.load();List<String>queries=DjPlanner.buildQueries(prompt,local);List<List<SearchResult>>batches=new ArrayList<>();for(int i=0;i<queries.size();i++){String q=queries.get(i);int step=i+1;runOnUiThread(()->djStatus.setText("DJ 검색 "+step+"/"+queries.size()+" · "+q));try{batches.add(youtube.search(q));}catch(Exception x){batches.add(Collections.emptyList());}}List<SearchResult>merged=DjPlanner.merge(batches,local,30);runOnUiThread(()->{djLoading=false;djGenerate.setEnabled(true);djAdapter.submit(merged);djStatus.setText(merged.isEmpty()?"추천 후보를 찾지 못했습니다.":"AI DJ · "+merged.size()+"곡 후보 · 취향 반영");});}catch(Exception e){runOnUiThread(()->{djLoading=false;djGenerate.setEnabled(true);djStatus.setText("DJ 실패 · "+compactError(e));});}});}
 
-    private void runSearch(){String q=searchInput.getText().toString().trim();if(TextUtils.isEmpty(q)){searchInput.setError("검색어를 입력하세요.");return;}if(!engineReady){toast("음악 엔진을 준비하는 중입니다.");return;}searchProgress.setVisibility(View.VISIBLE);searchButton.setEnabled(false);engineStatus.setText("검색 중… 음악 필터를 적용합니다.");io.execute(()->{try{List<SearchResult>list=youtube.search(q);runOnUiThread(()->{resultsAdapter.submit(list);searchProgress.setVisibility(View.GONE);searchButton.setEnabled(true);engineStatus.setText(list.isEmpty()?"검색 결과가 없습니다.":"검색 완료 · "+list.size()+"곡");});}catch(Exception e){runOnUiThread(()->{searchProgress.setVisibility(View.GONE);searchButton.setEnabled(true);engineStatus.setText("검색 실패 · "+compactError(e));});}});}
+    private void runSearch(){
+        String q=searchInput.getText().toString().trim();
+        if(TextUtils.isEmpty(q)){searchInput.setError("검색어를 입력하세요.");return;}
+        if(!engineReady){toast("음악 엔진을 준비하는 중입니다.");return;}
+        searchProgress.setVisibility(View.VISIBLE);
+        searchButton.setEnabled(false);
+        engineStatus.setText("검색 중… 음악 필터를 적용합니다.");
+        io.execute(()->{
+            try{
+                List<SearchResult>list=youtube.search(q);
+                String selectedSource=settings.getString(YoutubeRepository.KEY_SEARCH_SOURCE,"music_first");
+                String ytmError=youtube.getLastYtmError();
+                runOnUiThread(()->{
+                    resultsAdapter.submit(list);
+                    searchProgress.setVisibility(View.GONE);
+                    searchButton.setEnabled(true);
+                    if(list.isEmpty()){
+                        engineStatus.setText("검색 결과가 없습니다.");
+                    }else if("youtube_music".equals(selectedSource)&&allYoutubeFallback(list)){
+                        String detail=compactText(ytmError,96);
+                        engineStatus.setText("YouTube Music 직접 연결 실패 · YouTube 대체 "+list.size()+"곡"
+                                +(detail.isEmpty()?"":" · "+detail));
+                    }else{
+                        engineStatus.setText("검색 완료 · "+list.size()+"곡");
+                    }
+                });
+            }catch(Exception e){
+                runOnUiThread(()->{
+                    searchProgress.setVisibility(View.GONE);
+                    searchButton.setEnabled(true);
+                    engineStatus.setText("검색 실패 · "+compactError(e));
+                });
+            }
+        });
+    }
+
+    private static boolean allYoutubeFallback(List<SearchResult> list){
+        if(list==null||list.isEmpty())return false;
+        for(SearchResult item:list){
+            if(item==null||item.badge==null||!item.badge.contains("YouTube 음원 대체"))return false;
+        }
+        return true;
+    }
+
 
     private void download(SearchResult item,int position){
         if(item.id.startsWith("artist:")){openSearchFor(item.title);return;}
@@ -372,6 +415,7 @@ public final class MainActivity extends AppCompatActivity {
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private void showFirstRunNotice(){if(getPreferences(MODE_PRIVATE).getBoolean("notice_seen",false))return;new AlertDialog.Builder(this).setTitle("테스트판 안내").setMessage("다운로드 기능은 본인이 권리를 보유하거나 다운로드 허가를 받은 콘텐츠에만 사용하세요. 이 앱은 DRM 우회 기능을 포함하지 않습니다.").setPositiveButton("확인",(d,w)->getPreferences(MODE_PRIVATE).edit().putBoolean("notice_seen",true).apply()).show();}
     private String compactError(Exception e){String m=e.getMessage();if(m==null||m.trim().isEmpty())return e.getClass().getSimpleName();m=m.replace('\n',' ');return m.length()>140?m.substring(0,140)+"…":m;}
+    private static String compactText(String value,int max){if(value==null)return"";String v=value.replace('\n',' ').replace('\r',' ').trim();return v.length()>max?v.substring(0,max)+"…":v;}
     private void toast(String t){Toast.makeText(this,t,Toast.LENGTH_SHORT).show();}
 
     @Override protected void onResume(){super.onResume();if(library!=null)refreshAll();syncPlayerUi();if(downloadQueue!=null)downloadQueue.kick();}
