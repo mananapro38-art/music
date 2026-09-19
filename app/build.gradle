@@ -4,6 +4,8 @@ plugins {
 
 def nlmKeystorePath = System.getenv('NLM_KEYSTORE_PATH')
 def nlmKeystorePassword = System.getenv('NLM_KEYSTORE_PASSWORD')
+def monetagZoneId = (System.getenv('MONETAG_ZONE_ID') ?: project.findProperty('MONETAG_ZONE_ID') ?: '0').toString().replaceAll('[^0-9]', '')
+if (monetagZoneId.isEmpty()) monetagZoneId = '0'
 
 android {
     namespace 'com.nolimit.music'
@@ -16,6 +18,7 @@ android {
         versionCode 19
         versionName '1.6.4'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        buildConfigField 'long', 'MONETAG_INTERSTITIAL_ZONE_ID', "${monetagZoneId}L"
     }
 
     signingConfigs {
@@ -51,6 +54,7 @@ android {
 }
 
 dependencies {
+    implementation 'co.notix:android-sdk:0.1.86'
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'androidx.recyclerview:recyclerview:1.4.0'
     implementation 'com.google.android.material:material:1.14.0'
