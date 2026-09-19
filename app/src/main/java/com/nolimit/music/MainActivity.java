@@ -113,7 +113,7 @@ public final class MainActivity extends AppCompatActivity {
     private Spinner chartCategorySpinner, chartCountrySpinner;
     private MaterialSwitch autoplaySwitch, mobileDownloadSwitch;
     private View sectionHome, sectionSearch, sectionPlaylist, sectionSettings, sectionCharts, sectionDj;
-    private TextView iconHome, iconSearch, iconPlaylist, iconSettings;
+    private ImageView iconHome, iconSearch, iconPlaylist, iconSettings;
 
     private String activePlaylistId = PlaylistStore.DEFAULT_ID;
     private String activeSmart = null;
@@ -257,16 +257,10 @@ public final class MainActivity extends AppCompatActivity {
     private void switchTab(String tab){hideAllSections();sectionHome.setVisibility("home".equals(tab)?View.VISIBLE:View.GONE);sectionSearch.setVisibility("search".equals(tab)?View.VISIBLE:View.GONE);sectionPlaylist.setVisibility("playlist".equals(tab)?View.VISIBLE:View.GONE);sectionSettings.setVisibility("settings".equals(tab)?View.VISIBLE:View.GONE);setNavActive(iconHome,"home".equals(tab));setNavActive(iconSearch,"search".equals(tab));setNavActive(iconPlaylist,"playlist".equals(tab));setNavActive(iconSettings,"settings".equals(tab));if("playlist".equals(tab)){renderPlaylistFolders();renderActivePlaylist();}}
     private void openCharts(){hideAllSections();sectionCharts.setVisibility(View.VISIBLE);setNavActive(iconHome,true);setNavActive(iconSearch,false);setNavActive(iconPlaylist,false);setNavActive(iconSettings,false);loadChartBrowser();}
     private void openDj(){hideAllSections();sectionDj.setVisibility(View.VISIBLE);setNavActive(iconHome,true);setNavActive(iconSearch,false);setNavActive(iconPlaylist,false);setNavActive(iconSettings,false);}
-    private void setNavActive(TextView icon,boolean active){
-        icon.setBackgroundResource(active?R.drawable.bg_nav_active:0);
-        icon.setAlpha(active?1f:.58f);
-        android.graphics.drawable.Drawable[] ds=icon.getCompoundDrawables();
-        for(android.graphics.drawable.Drawable d:ds){
-            if(d!=null){
-                d=d.mutate();
-                d.setTint(ContextCompat.getColor(this,active?R.color.accent:R.color.nav_icon));
-            }
-        }
+    private void setNavActive(ImageView icon,boolean active){
+        icon.setBackgroundResource(active ? R.drawable.bg_nav_selected_circle : 0);
+        icon.setAlpha(active ? 1f : .62f);
+        icon.setColorFilter(ContextCompat.getColor(this, active ? R.color.accent : R.color.nav_icon));
     }
 
     private void initializeEngine(){io.execute(()->{try{youtube.init();engineReady=true;runOnUiThread(this::updateReadyStatus);}catch(Exception e){runOnUiThread(()->engineStatus.setText("엔진 준비 실패 · "+compactError(e)));}});}
