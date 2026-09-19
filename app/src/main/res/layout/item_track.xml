@@ -2,19 +2,19 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="7dp"
+    android:layout_marginBottom="4dp"
     android:background="@drawable/bg_smart_card"
     android:gravity="center_vertical"
-    android:minHeight="76dp"
+    android:minHeight="66dp"
     android:orientation="horizontal"
-    android:paddingLeft="8dp"
-    android:paddingTop="8dp"
-    android:paddingRight="8dp"
-    android:paddingBottom="8dp">
+    android:paddingLeft="5dp"
+    android:paddingTop="5dp"
+    android:paddingRight="5dp"
+    android:paddingBottom="5dp">
 
     <TextView
-        android:layout_width="22dp"
-        android:layout_height="44dp"
+        android:layout_width="18dp"
+        android:layout_height="40dp"
         android:gravity="center"
         android:text="⋮⋮"
         android:textColor="@color/muted"
@@ -22,9 +22,9 @@
 
     <ImageView
         android:id="@+id/ivTrackArtwork"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        android:layout_marginStart="4dp"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:layout_marginStart="2dp"
         android:background="@drawable/bg_search"
         android:clipToOutline="true"
         android:contentDescription="앨범 아트"
@@ -34,7 +34,7 @@
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="11dp"
+        android:layout_marginStart="8dp"
         android:layout_weight="1"
         android:orientation="vertical">
         <TextView
@@ -60,7 +60,7 @@
     <TextView
         android:id="@+id/tvLike"
         android:layout_width="40dp"
-        android:layout_height="44dp"
+        android:layout_height="40dp"
         android:gravity="center"
         android:text="♡"
         android:textColor="@color/tertiary"
@@ -69,7 +69,7 @@
     <TextView
         android:id="@+id/tvRemove"
         android:layout_width="40dp"
-        android:layout_height="44dp"
+        android:layout_height="40dp"
         android:gravity="center"
         android:text="⋯"
         android:textColor="@color/muted"
