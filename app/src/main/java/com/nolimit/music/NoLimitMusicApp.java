@@ -16,6 +16,7 @@ import android.view.ViewOutlineProvider;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
@@ -61,6 +62,10 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
 
     public String getStartioStatus() {
         return startioAds == null ? "광고 관리자 없음" : startioAds.getStatus();
+    }
+
+    public boolean showStartioDiagnostic(Activity activity) {
+        return startioAds != null && startioAds.showDiagnosticAd(activity);
     }
 
     @Override public void onActivityResumed(Activity activity) {
@@ -296,6 +301,28 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         MaterialSwitch autoBackup = toggle(activity, "앱을 나갈 때 자동 백업", settings.getBoolean("auto_backup", true));
         autoBackup.setOnCheckedChangeListener((b, checked) -> settings.edit().putBoolean("auto_backup", checked).apply());
         box.addView(autoBackup);
+
+        TextView adStatus = label(activity, "Start.io 진단 · " + getStartioStatus(), 11, false);
+        adStatus.setTag("startio_status");
+        LinearLayout.LayoutParams adStatusLp = new LinearLayout.LayoutParams(-1, -2);
+        adStatusLp.topMargin = dp(activity, 12);
+        box.addView(adStatus, adStatusLp);
+
+        TextView adTest = card(activity, "Start.io 테스트 광고 표시");
+        LinearLayout.LayoutParams adTestLp = new LinearLayout.LayoutParams(-1, dp(activity, 52));
+        adTestLp.topMargin = dp(activity, 7);
+        adTest.setLayoutParams(adTestLp);
+        adTest.setOnClickListener(v -> {
+            boolean shown = showStartioDiagnostic(activity);
+            String status = getStartioStatus();
+            adStatus.setText("Start.io 진단 · " + status);
+            Toast.makeText(activity,
+                    shown ? "Start.io 테스트 광고 표시 요청 성공" : status,
+                    Toast.LENGTH_LONG).show();
+            activity.getWindow().getDecorView().postDelayed(
+                    () -> adStatus.setText("Start.io 진단 · " + getStartioStatus()), 1800L);
+        });
+        box.addView(adTest);
 
         TextView backupHint = label(activity,
                 "새 곡은 Music/No Limit Music에 보존되고, 라이브러리+에서 기존 곡도 일괄 보존할 수 있습니다.", 11, false);
