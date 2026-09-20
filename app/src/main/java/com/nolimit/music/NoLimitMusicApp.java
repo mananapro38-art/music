@@ -27,7 +27,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.widget.NestedScrollView;
 
 import com.google.android.material.materialswitch.MaterialSwitch;
-import com.nolimit.music.ads.MonetagAds;
+import com.nolimit.music.ads.StartioAds;
 import com.nolimit.music.data.AutoBackupManager;
 import com.nolimit.music.data.DownloadQueueManager;
 import com.nolimit.music.ui.LiquidGlassOverlayView;
@@ -42,21 +42,21 @@ import eightbitlab.com.blurview.BlurView;
 
 public final class NoLimitMusicApp extends Application implements Application.ActivityLifecycleCallbacks {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
-    private MonetagAds monetagAds;
+    private StartioAds startioAds;
     private int startedActivities = 0;
 
     @Override public void onCreate() {
         super.onCreate();
-        monetagAds = new MonetagAds(this);
+        startioAds = new StartioAds(this);
         registerActivityLifecycleCallbacks(this);
     }
 
-    public boolean showMonetagAtNaturalBreak(Activity activity) {
-        return monetagAds != null && monetagAds.onNaturalBreak(activity);
+    public boolean showStartioAtNaturalBreak(Activity activity) {
+        return startioAds != null && startioAds.onNaturalBreak(activity);
     }
 
-    public boolean isMonetagConfigured() {
-        return monetagAds != null && monetagAds.isConfigured();
+    public boolean isStartioConfigured() {
+        return startioAds != null && startioAds.isConfigured();
     }
 
     @Override public void onActivityResumed(Activity activity) {
