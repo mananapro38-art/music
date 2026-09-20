@@ -12,8 +12,8 @@ android {
         applicationId 'com.nolimit.music'
         minSdk 26
         targetSdk 36
-        versionCode 26
-        versionName '1.7.1'
+        versionCode 27
+        versionName '1.7.2'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         buildConfigField 'String', 'STARTIO_APP_ID', '"208550104"'
         buildConfigField 'boolean', 'STARTIO_TEST_MODE', 'false'

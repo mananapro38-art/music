@@ -39,13 +39,14 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:orientation="vertical">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="홈"
-                            android:textColor="@color/text_primary"
-                            android:textSize="34sp"
-                            android:textStyle="bold" />
+                        <ImageView
+                            android:id="@+id/ivHomeBrandLogo"
+                            android:layout_width="84dp"
+                            android:layout_height="44dp"
+                            android:adjustViewBounds="true"
+                            android:contentDescription="No Limit Music"
+                            android:scaleType="fitStart"
+                            android:src="@drawable/ic_app" />
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"

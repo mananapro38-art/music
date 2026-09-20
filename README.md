@@ -1,4 +1,4 @@
-# No Limit Music v1.7.1
+# No Limit Music v1.7.2
 
 무료 Android 음악 앱 **No Limit Music**의 소스 저장소입니다.
 
@@ -23,11 +23,12 @@
 - 음악 인식 및 플레이리스트 스크린샷 OCR 가져오기
 - Media3 백그라운드 재생과 홈 화면 위젯
 - 다크 / 라이트 테마
+- 홈 상단 제목을 N 브랜드 로고로 표시
 - 기기 내 번역 모델 기반 **59개 언어 UI 선택**
 
 ## 설치 및 업데이트
 
-공식 웹사이트에 현재 공개된 설치 파일은 v1.6.9입니다. v1.7.1 빌드는 GitHub Actions artifact로 먼저 생성됩니다.
+공식 웹사이트에 현재 공개된 설치 파일은 v1.6.9입니다. v1.7.2 빌드는 GitHub Actions artifact로 먼저 생성됩니다.
 
 https://nolimitmusic.pages.dev/NoLimitMusic-v1.6.9.apk
 
