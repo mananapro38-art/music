@@ -328,7 +328,7 @@ public final class MainActivity extends AppCompatActivity {
         if(item.id.startsWith("artist:")){openSearchFor(item.title);return;}
         Track existing=library.find(item.id);if(existing!=null&&TrackStorage.exists(this,existing.path)){playlists.addTrack(PlaylistStore.DEFAULT_ID,existing.id);refreshAll();engineStatus.setText("이미 저장된 곡 · 재생합니다.");playDownloaded(existing);return;}
         boolean allowMobile=settings.getBoolean(KEY_ALLOW_MOBILE_DOWNLOAD,false);if(!NetworkUtil.canDownload(this,allowMobile)){new AlertDialog.Builder(this).setTitle(allowMobile?"인터넷 연결이 필요합니다":"Wi‑Fi가 필요합니다").setMessage(allowMobile?"현재 인터넷에 연결되어 있지 않습니다.":"Wi‑Fi 전용 저장이 켜져 있습니다.").setPositiveButton("확인",null).show();return;}
-        boolean added=downloadQueue.enqueue(item);if(added){setAllDownloadProgress(item.id,0);engineStatus.setText("대기열에 추가 · "+item.title);if(getApplication() instanceof NoLimitMusicApp)((NoLimitMusicApp)getApplication()).showMonetagAtNaturalBreak(this);}else toast("이미 대기열에 있거나 저장된 곡입니다.");
+        boolean added=downloadQueue.enqueue(item);if(added){setAllDownloadProgress(item.id,0);engineStatus.setText("대기열에 추가 · "+item.title);if(getApplication() instanceof NoLimitMusicApp)((NoLimitMusicApp)getApplication()).showStartioAtNaturalBreak(this);}else toast("이미 대기열에 있거나 저장된 곡입니다.");
     }
 
     private int enqueueMissingTracks(List<Track> tracks){int n=0;for(Track t:tracks){if(TrackStorage.exists(this,t.path))continue;String thumb=t.thumbnailUrl==null||t.thumbnailUrl.isEmpty()?ArtworkLoader.fallbackUrl(t.id):t.thumbnailUrl;SearchResult r=new SearchResult(t.id,t.title,t.artist,"https://www.youtube.com/watch?v="+t.id,t.durationSeconds,thumb,0,"복원",t.album);if(downloadQueue.enqueue(r))n++;}return n;}
