@@ -16,7 +16,6 @@ import android.view.ViewOutlineProvider;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
@@ -29,6 +28,7 @@ import androidx.core.widget.NestedScrollView;
 
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.nolimit.music.ads.StartioAds;
+import com.nolimit.music.ads.StartioBannerFactory;
 import com.nolimit.music.data.AutoBackupManager;
 import com.nolimit.music.data.DownloadQueueManager;
 import com.nolimit.music.ui.LiquidGlassOverlayView;
@@ -64,10 +64,6 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         return startioAds == null ? "광고 관리자 없음" : startioAds.getStatus();
     }
 
-    public boolean showStartioDiagnostic(Activity activity) {
-        return startioAds != null && startioAds.showDiagnosticAd(activity);
-    }
-
     @Override public void onActivityResumed(Activity activity) {
         if (!(activity instanceof MainActivity)) return;
         if (startioAds != null) startioAds.prepare(activity);
@@ -81,6 +77,7 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         injectHomeActions(activity);
         collapseHomePreview(activity);
         injectAdvancedSettings(activity);
+        injectStartioBanners(activity);
         requestV1Permissions(activity);
         DownloadQueueManager.get(activity).kick();
     }
@@ -302,32 +299,44 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         autoBackup.setOnCheckedChangeListener((b, checked) -> settings.edit().putBoolean("auto_backup", checked).apply());
         box.addView(autoBackup);
 
-        TextView adStatus = label(activity, "Start.io 진단 · " + getStartioStatus(), 11, false);
-        adStatus.setTag("startio_status");
-        LinearLayout.LayoutParams adStatusLp = new LinearLayout.LayoutParams(-1, -2);
-        adStatusLp.topMargin = dp(activity, 12);
-        box.addView(adStatus, adStatusLp);
-
-        TextView adTest = card(activity, "Start.io 테스트 광고 표시");
-        LinearLayout.LayoutParams adTestLp = new LinearLayout.LayoutParams(-1, dp(activity, 52));
-        adTestLp.topMargin = dp(activity, 7);
-        adTest.setLayoutParams(adTestLp);
-        adTest.setOnClickListener(v -> {
-            boolean shown = showStartioDiagnostic(activity);
-            String status = getStartioStatus();
-            adStatus.setText("Start.io 진단 · " + status);
-            Toast.makeText(activity,
-                    shown ? "Start.io 테스트 광고 표시 요청 성공" : status,
-                    Toast.LENGTH_LONG).show();
-            activity.getWindow().getDecorView().postDelayed(
-                    () -> adStatus.setText("Start.io 진단 · " + getStartioStatus()), 1800L);
-        });
-        box.addView(adTest);
-
         TextView backupHint = label(activity,
                 "새 곡은 Music/No Limit Music에 보존되고, 라이브러리+에서 기존 곡도 일괄 보존할 수 있습니다.", 11, false);
         box.addView(backupHint);
         container.addView(box);
+    }
+
+    private void injectStartioBanners(Activity activity) {
+        NestedScrollView home = activity.findViewById(R.id.sectionHome);
+        if (home != null && home.getChildCount() > 0 && home.getChildAt(0) instanceof LinearLayout) {
+            LinearLayout homeContent = (LinearLayout) home.getChildAt(0);
+            StartioBannerFactory.attach(activity, homeContent, "home", Math.min(3, homeContent.getChildCount()));
+        }
+
+        LinearLayout search = activity.findViewById(R.id.sectionSearch);
+        if (search != null) {
+            StartioBannerFactory.attach(activity, search, "search", Math.max(0, search.getChildCount() - 1));
+        }
+
+        LinearLayout charts = activity.findViewById(R.id.sectionCharts);
+        if (charts != null) {
+            StartioBannerFactory.attach(activity, charts, "charts", Math.max(0, charts.getChildCount() - 1));
+        }
+
+        LinearLayout dj = activity.findViewById(R.id.sectionDj);
+        if (dj != null) {
+            StartioBannerFactory.attach(activity, dj, "ai_dj", Math.max(0, dj.getChildCount() - 1));
+        }
+
+        LinearLayout playlist = activity.findViewById(R.id.sectionPlaylist);
+        if (playlist != null) {
+            StartioBannerFactory.attach(activity, playlist, "playlist", Math.max(0, playlist.getChildCount() - 1));
+        }
+
+        NestedScrollView settings = activity.findViewById(R.id.sectionSettings);
+        if (settings != null && settings.getChildCount() > 0 && settings.getChildAt(0) instanceof LinearLayout) {
+            LinearLayout settingsContent = (LinearLayout) settings.getChildAt(0);
+            StartioBannerFactory.append(activity, settingsContent, "settings");
+        }
     }
 
     private static TextView actionCard(Activity a, String text, int icon) {
