@@ -31,6 +31,7 @@ import com.nolimit.music.ads.StartioAds;
 import com.nolimit.music.ads.StartioBannerFactory;
 import com.nolimit.music.data.AutoBackupManager;
 import com.nolimit.music.data.DownloadQueueManager;
+import com.nolimit.music.i18n.UiAutoTranslator;
 import com.nolimit.music.ui.LiquidGlassOverlayView;
 
 import java.util.ArrayList;
@@ -65,6 +66,7 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
     }
 
     @Override public void onActivityResumed(Activity activity) {
+        UiAutoTranslator.attach(activity);
         if (!(activity instanceof MainActivity)) return;
         if (startioAds != null) startioAds.prepare(activity);
         View playerBar = activity.findViewById(R.id.playerBar);
@@ -299,6 +301,20 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         autoBackup.setOnCheckedChangeListener((b, checked) -> settings.edit().putBoolean("auto_backup", checked).apply());
         box.addView(autoBackup);
 
+        TextView language = card(activity, "언어 · " + UiAutoTranslator.currentLanguageName(activity));
+        LinearLayout.LayoutParams languageLp = new LinearLayout.LayoutParams(-1, dp(activity, 52));
+        languageLp.topMargin = dp(activity, 7);
+        language.setLayoutParams(languageLp);
+        language.setOnClickListener(v -> UiAutoTranslator.showLanguagePicker(activity));
+        box.addView(language);
+
+        TextView translationNote = label(activity,
+                "자동 번역은 기기에서 처리되며 선택한 언어 모델을 처음 한 번 내려받습니다. 번역 결과는 참고용입니다. Powered by Google Translate.",
+                10, false);
+        LinearLayout.LayoutParams translationLp = new LinearLayout.LayoutParams(-1, -2);
+        translationLp.topMargin = dp(activity, 4);
+        box.addView(translationNote, translationLp);
+
         TextView backupHint = label(activity,
                 "새 곡은 Music/No Limit Music에 보존되고, 라이브러리+에서 기존 곡도 일괄 보존할 수 있습니다.", 11, false);
         box.addView(backupHint);
@@ -401,5 +417,7 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
     @Override public void onActivityCreated(Activity activity, Bundle savedInstanceState) { }
     @Override public void onActivityPaused(Activity activity) { }
     @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) { }
-    @Override public void onActivityDestroyed(Activity activity) { }
+    @Override public void onActivityDestroyed(Activity activity) {
+        UiAutoTranslator.detach(activity);
+    }
 }
