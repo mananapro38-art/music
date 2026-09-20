@@ -20,6 +20,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.nolimit.music.ads.StartioBannerFactory;
 import com.nolimit.music.playback.PlaybackService;
 
 import java.util.ArrayList;
@@ -49,6 +50,7 @@ public final class QueueActivity extends AppCompatActivity {
         header.addView(title, new LinearLayout.LayoutParams(0, dp(44), 1f));
         root.addView(header);
         status = label("플레이어 연결 중…", 11, false); root.addView(status);
+        StartioBannerFactory.append(this, root, "queue");
         RecyclerView list = new RecyclerView(this);
         list.setLayoutManager(new LinearLayoutManager(this));
         adapter = new QueueAdapter();
