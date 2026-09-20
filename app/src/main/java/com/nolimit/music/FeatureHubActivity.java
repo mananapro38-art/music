@@ -25,6 +25,7 @@ import androidx.media3.session.SessionToken;
 
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.nolimit.music.ads.StartioBannerFactory;
 import com.nolimit.music.data.AutoBackupManager;
 import com.nolimit.music.data.DownloadTaskStore;
 import com.nolimit.music.data.HistoryStore;
@@ -87,6 +88,7 @@ public final class FeatureHubActivity extends AppCompatActivity {
         addTab(tabs, "라이브러리", this::renderLibrary); addTab(tabs, "다운로드", this::renderDownloads);
         addTab(tabs, "리캡", this::renderHistory); addTab(tabs, "스마트 플리", this::renderSmartRules);
         scroll.addView(tabs); LinearLayout.LayoutParams tabsLp = new LinearLayout.LayoutParams(-1, dp(48)); tabsLp.topMargin = dp(8); root.addView(scroll, tabsLp);
+        StartioBannerFactory.append(this, root, "library_hub");
 
         ScrollView body = new ScrollView(this); body.setFillViewport(true);
         content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL); content.setPadding(0, dp(8), 0, dp(42));
