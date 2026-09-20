@@ -269,16 +269,39 @@ public final class YoutubeRepository {
 
     private List<SearchResult> searchYoutubeMusicPage(String query, int limit) throws Exception {
         String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
-        String url = "https://music.youtube.com/search?q=" + encoded
-                + "&sp=" + URLEncoder.encode(YTM_SONGS_PARAMS, StandardCharsets.UTF_8);
-        String page = readYtmUrl(url);
-        String json = extractAssignedJson(page, "ytInitialData");
-        if (json.isEmpty()) throw new IllegalStateException("ytInitialData 없음");
-        JSONObject response = new JSONObject(json);
-        List<SearchResult> out = new ArrayList<>();
+        List<SearchResult> merged = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        collectMusicResponsiveItems(response, out, seen, limit);
-        return out;
+        List<String> attempts = new ArrayList<>();
+        String[] params = new String[]{YTM_SONGS_PARAMS_ALT, YTM_SONGS_PARAMS, ""};
+
+        for (String param : params) {
+            try {
+                String url = "https://music.youtube.com/search?q=" + encoded;
+                if (!param.isEmpty()) {
+                    url += "&sp=" + URLEncoder.encode(param, StandardCharsets.UTF_8);
+                }
+                String page = readYtmUrl(url);
+                String json = extractAssignedJson(page, "ytInitialData");
+                if (json.isEmpty()) {
+                    attempts.add(param.isEmpty() ? "page-unfiltered=json 없음" : "page-filtered=json 없음");
+                    continue;
+                }
+                JSONObject response = new JSONObject(json);
+                List<SearchResult> batch = new ArrayList<>();
+                Set<String> batchSeen = new HashSet<>();
+                collectMusicResponsiveItems(response, batch, batchSeen, Math.max(limit, 40));
+                if (batch.isEmpty() && param.isEmpty()) {
+                    collectGenericVideoItems(response, batch, batchSeen, Math.max(limit, 40));
+                }
+                appendUnique(merged, seen, batch, Math.max(limit, 40));
+                attempts.add((param.isEmpty() ? "page-unfiltered" : "page-filtered") + "=" + batch.size());
+                if (merged.size() >= limit) break;
+            } catch (Exception e) {
+                attempts.add((param.isEmpty() ? "page-unfiltered" : "page-filtered") + "=" + compactError(e));
+            }
+        }
+        if (!merged.isEmpty()) return merged;
+        throw new IllegalStateException(String.join(" / ", attempts));
     }
 
     private static final class YtmConfig {
@@ -798,7 +821,72 @@ public final class YoutubeRepository {
     }
 
     public List<SearchResult> searchYoutube(String query, int limit) throws Exception {
-        return tagResults(MusicRanker.rank(executeFlatSearch("ytsearch" + limit + ":" + query, limit), query), "", "YouTube");
+        List<String> errors = new ArrayList<>();
+
+        // Fast path: yt-dlp search. Nightly updates are still used by the app.
+        try {
+            List<SearchResult> raw = executeFlatSearch("ytsearch" + limit + ":" + query, limit);
+            if (!raw.isEmpty()) {
+                return tagResults(MusicRanker.rank(raw, query), "", "YouTube");
+            }
+            errors.add("yt-dlp: 결과 없음");
+        } catch (Exception e) {
+            errors.add("yt-dlp: " + compactError(e));
+        }
+
+        // Resilient fallback: parse the public YouTube search page directly.
+        // This path only needs search metadata and therefore does not depend on
+        // playback-format extraction, PO tokens, or a working yt-dlp extractor.
+        try {
+            List<SearchResult> raw = searchYoutubeHtml(query, limit);
+            if (!raw.isEmpty()) {
+                return tagResults(MusicRanker.rank(raw, query), "", "YouTube");
+            }
+            errors.add("YouTube web: 결과 없음");
+        } catch (Exception e) {
+            errors.add("YouTube web: " + compactError(e));
+        }
+
+        throw new IllegalStateException("YouTube 검색 실패 · " + String.join(" | ", errors));
+    }
+
+    private List<SearchResult> searchYoutubeHtml(String query, int limit) throws Exception {
+        String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
+        String page = readYoutubeUrl("https://www.youtube.com/results?search_query=" + encoded);
+        String json = extractAssignedJson(page, "ytInitialData");
+        if (json.isEmpty()) throw new IllegalStateException("ytInitialData 없음");
+
+        JSONObject response = new JSONObject(json);
+        List<SearchResult> out = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        collectGenericVideoItems(response, out, seen, Math.max(1, limit));
+        if (out.isEmpty()) throw new IllegalStateException("videoRenderer 없음");
+        return out;
+    }
+
+    private static String readYoutubeUrl(String url) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setConnectTimeout(12000);
+        conn.setReadTimeout(18000);
+        conn.setInstanceFollowRedirects(true);
+        conn.setRequestProperty("User-Agent", YTM_USER_AGENT);
+        conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8");
+        conn.setRequestProperty("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.7,en;q=0.5");
+        conn.setRequestProperty("Cookie", YTM_CONSENT_COOKIE);
+        try {
+            int code = conn.getResponseCode();
+            InputStream in = code >= 200 && code < 400 ? conn.getInputStream() : conn.getErrorStream();
+            if (in == null) throw new IllegalStateException("HTTP " + code);
+            StringBuilder body = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) body.append(line).append('\n');
+            }
+            if (code < 200 || code >= 400) throw new IllegalStateException("HTTP " + code);
+            return body.toString();
+        } finally {
+            conn.disconnect();
+        }
     }
 
     public List<SearchResult> searchSoundCloud(String query, int limit) throws Exception {

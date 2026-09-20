@@ -1,4 +1,4 @@
-# No Limit Music v1.7.0
+# No Limit Music v1.7.1
 
 무료 Android 음악 앱 **No Limit Music**의 소스 저장소입니다.
 
@@ -16,7 +16,7 @@
 - 무료 설치 및 기본 사용
 - 설정에서 광고 제거 코드를 적용하면 30일간 앱 배너·전면 광고 숨김
 - 음악 재생 중 오디오 광고를 삽입하지 않는 재생 환경
-- 음악 검색, YouTube 차트, AI DJ
+- 음악 검색, YouTube 차트, AI DJ\n- YouTube Music 검색 실패 시 공개 검색 페이지로 자동 보완
 - 최근 추가 / 좋아요 / 많이 재생한 곡 스마트 플레이리스트
 - 사용자 플레이리스트 생성·편집·순서 변경
 - 로컬 라이브러리, 재생 기록, 대기열, 백업
@@ -27,7 +27,7 @@
 
 ## 설치 및 업데이트
 
-공식 웹사이트에 현재 공개된 설치 파일은 v1.6.9입니다. v1.7.0 빌드는 GitHub Actions artifact로 먼저 생성됩니다.
+공식 웹사이트에 현재 공개된 설치 파일은 v1.6.9입니다. v1.7.1 빌드는 GitHub Actions artifact로 먼저 생성됩니다.
 
 https://nolimitmusic.pages.dev/NoLimitMusic-v1.6.9.apk
 
