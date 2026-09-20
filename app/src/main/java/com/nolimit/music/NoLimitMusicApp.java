@@ -59,8 +59,13 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         return startioAds != null && startioAds.isConfigured();
     }
 
+    public String getStartioStatus() {
+        return startioAds == null ? "광고 관리자 없음" : startioAds.getStatus();
+    }
+
     @Override public void onActivityResumed(Activity activity) {
         if (!(activity instanceof MainActivity)) return;
+        if (startioAds != null) startioAds.prepare(activity);
         View playerBar = activity.findViewById(R.id.playerBar);
         if (playerBar != null) {
             playerBar.setBackgroundResource(R.drawable.bg_glass_panel);
