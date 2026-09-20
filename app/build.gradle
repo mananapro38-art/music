@@ -12,12 +12,12 @@ android {
         applicationId 'com.nolimit.music'
         minSdk 26
         targetSdk 36
-        versionCode 22
-        versionName '1.6.7'
+        versionCode 23
+        versionName '1.6.8'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         buildConfigField 'String', 'STARTIO_APP_ID', '"208550104"'
-        buildConfigField 'boolean', 'STARTIO_TEST_MODE', 'true'
-        buildConfigField 'boolean', 'STARTIO_DIAGNOSTIC_AUTOSHOW', 'true'
+        buildConfigField 'boolean', 'STARTIO_TEST_MODE', 'false'
+        buildConfigField 'boolean', 'STARTIO_DIAGNOSTIC_AUTOSHOW', 'false'
     }
 
     signingConfigs {
