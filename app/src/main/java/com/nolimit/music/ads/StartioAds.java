@@ -95,6 +95,10 @@ public final class StartioAds {
     public synchronized void prepare(Activity activity) {
         if (!isConfigured() || activity == null || activity.isFinishing()) return;
         if (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed()) return;
+        if (AdRemovalManager.isAdFree(activity)) {
+            lastStatus = "광고 제거 활성";
+            return;
+        }
 
         activityRef = new WeakReference<>(activity);
         if (!sdkInitialized || loading || ready) return;
@@ -149,6 +153,10 @@ public final class StartioAds {
     public synchronized boolean showDiagnosticAd(Activity activity) {
         if (!isConfigured() || activity == null || activity.isFinishing()) return false;
         if (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed()) return false;
+        if (AdRemovalManager.isAdFree(activity)) {
+            lastStatus = "광고 제거 활성";
+            return false;
+        }
         activityRef = new WeakReference<>(activity);
 
         if (!ready || interstitialAd == null) {
@@ -191,6 +199,10 @@ public final class StartioAds {
     public synchronized boolean onNaturalBreak(Activity activity) {
         if (!isConfigured() || activity == null || activity.isFinishing()) return false;
         if (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed()) return false;
+        if (AdRemovalManager.isAdFree(activity)) {
+            lastStatus = "광고 제거 활성";
+            return false;
+        }
 
         activityRef = new WeakReference<>(activity);
 

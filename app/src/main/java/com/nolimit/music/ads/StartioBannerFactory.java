@@ -24,6 +24,10 @@ public final class StartioBannerFactory {
 
         String viewTag = TAG_PREFIX + placementTag;
         View existing = parent.findViewWithTag(viewTag);
+        if (AdRemovalManager.isAdFree(activity)) {
+            if (existing != null) parent.removeView(existing);
+            return null;
+        }
         if (existing != null) return existing;
 
         FrameLayout host = new FrameLayout(activity);

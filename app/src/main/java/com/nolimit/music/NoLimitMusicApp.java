@@ -13,6 +13,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -27,6 +28,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.widget.NestedScrollView;
 
 import com.google.android.material.materialswitch.MaterialSwitch;
+import com.nolimit.music.ads.AdRemovalManager;
 import com.nolimit.music.ads.StartioAds;
 import com.nolimit.music.ads.StartioBannerFactory;
 import com.nolimit.music.data.AutoBackupManager;
@@ -308,6 +310,13 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
         language.setOnClickListener(v -> UiAutoTranslator.showLanguagePicker(activity));
         box.addView(language);
 
+        TextView adRemoval = card(activity, AdRemovalManager.statusLabel(activity));
+        LinearLayout.LayoutParams adRemovalLp = new LinearLayout.LayoutParams(-1, dp(activity, 52));
+        adRemovalLp.topMargin = dp(activity, 7);
+        adRemoval.setLayoutParams(adRemovalLp);
+        adRemoval.setOnClickListener(v -> showAdRemovalCodeDialog(activity, adRemoval));
+        box.addView(adRemoval);
+
         TextView translationNote = label(activity,
                 "자동 번역은 기기에서 처리되며 선택한 언어 모델을 처음 한 번 내려받습니다. 번역 결과는 참고용입니다. Powered by Google Translate.",
                 10, false);
@@ -319,6 +328,40 @@ public final class NoLimitMusicApp extends Application implements Application.Ac
                 "새 곡은 Music/No Limit Music에 보존되고, 라이브러리+에서 기존 곡도 일괄 보존할 수 있습니다.", 11, false);
         box.addView(backupHint);
         container.addView(box);
+    }
+
+    private void showAdRemovalCodeDialog(Activity activity, TextView statusView) {
+        EditText input = new EditText(activity);
+        input.setSingleLine(true);
+        input.setHint("광고 제거 코드");
+        input.setPadding(dp(activity, 18), dp(activity, 10), dp(activity, 18), dp(activity, 10));
+
+        String message = AdRemovalManager.isAdFree(activity)
+                ? AdRemovalManager.statusLabel(activity) + "입니다. 새 코드를 적용하면 지금부터 30일로 갱신됩니다."
+                : "유효한 코드를 입력하면 30일 동안 배너와 전면 광고가 표시되지 않습니다.";
+
+        new AlertDialog.Builder(activity)
+                .setTitle("광고 제거 코드")
+                .setMessage(message)
+                .setView(input)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("적용", (dialog, which) -> {
+                    if (AdRemovalManager.redeem(activity, input.getText().toString())) {
+                        statusView.setText(AdRemovalManager.statusLabel(activity));
+                        new AlertDialog.Builder(activity)
+                                .setTitle("광고 제거 적용")
+                                .setMessage("지금부터 30일 동안 앱 광고가 표시되지 않습니다.")
+                                .setPositiveButton("확인", (d, w) -> activity.recreate())
+                                .show();
+                    } else {
+                        new AlertDialog.Builder(activity)
+                                .setTitle("코드 확인")
+                                .setMessage("유효하지 않은 광고 제거 코드입니다.")
+                                .setPositiveButton("확인", null)
+                                .show();
+                    }
+                })
+                .show();
     }
 
     private void injectStartioBanners(Activity activity) {
