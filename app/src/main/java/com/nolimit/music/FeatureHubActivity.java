@@ -161,9 +161,15 @@ public final class FeatureHubActivity extends AppCompatActivity {
     private View trackRow(Track track, List<Track> queue) {
         LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(dp(14), dp(11), dp(14), dp(11)); box.setBackgroundResource(R.drawable.bg_smart_card);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2); lp.topMargin = dp(6); box.setLayoutParams(lp);
-        box.addView(text(track.title, 14, true));
-        box.addView(text(track.artist + " · " + (track.album.isEmpty() ? "싱글/기타" : track.album) + " · " + track.playCount + "회", 11, false));
-        box.addView(text(track.tags == null ? "" : track.tags.replace(",", " · "), 10, false));
+        TextView trackTitle = text(track.title, 14, true);
+        trackTitle.setTag("no_translate");
+        box.addView(trackTitle);
+        TextView trackMeta = text(track.artist + " · " + (track.album.isEmpty() ? "싱글/기타" : track.album) + " · " + track.playCount + "회", 11, false);
+        trackMeta.setTag("no_translate");
+        box.addView(trackMeta);
+        TextView trackTags = text(track.tags == null ? "" : track.tags.replace(",", " · "), 10, false);
+        trackTags.setTag("no_translate");
+        box.addView(trackTags);
         box.setOnClickListener(v -> play(queue, track.id)); return box;
     }
 
