@@ -1,18 +1,31 @@
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <solid android:color="#0B0914" />
-            <corners android:radius="24dp" />
-        </shape>
-    </item>
-    <item
-        android:left="17dp"
-        android:top="17dp"
-        android:right="17dp"
-        android:bottom="17dp">
-        <bitmap
-            android:src="@drawable/ic_app_logo"
-            android:gravity="fill"
-            android:filter="true" />
-    </item>
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#0B0914"
+        android:pathData="M0,0h108v108h-108z" />
+
+    <path
+        android:pathData="M18,77 C27,58 36,34 44,27 C50,22 56,26 61,37 L70,58 C73,66 78,67 83,58 L92,35"
+        android:fillColor="@android:color/transparent"
+        android:strokeWidth="18"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="18"
+                android:startY="54"
+                android:endX="94"
+                android:endY="54">
+                <item android:offset="0.0" android:color="#FFFF70E8" />
+                <item android:offset="0.48" android:color="#FFB34CFF" />
+                <item android:offset="1.0" android:color="#FF7A2CFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
