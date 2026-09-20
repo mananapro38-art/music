@@ -23,6 +23,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NoLimitMusic">
 
+        <!-- Start.io application identity. -->
+        <meta-data android:name="com.startapp.sdk.APPLICATION_ID" android:value="208550104" />
+
         <!-- Start.io: only manually-triggered standard interstitials are used. -->
         <meta-data android:name="com.startapp.sdk.SPLASH_ENABLED" android:value="false" />
         <meta-data android:name="com.startapp.sdk.RETURN_ADS_ENABLED" android:value="false" />
