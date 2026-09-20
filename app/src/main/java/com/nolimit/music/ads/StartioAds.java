@@ -20,9 +20,9 @@ import java.lang.ref.WeakReference;
 /**
  * Start.io interstitial wrapper for the directly distributed No Limit Music APK.
  *
- * The SDK is initialized once, then an interstitial is explicitly preloaded
- * while MainActivity is visible. Ads are only displayed at a user-driven
- * natural break and are frequency capped locally.
+ * v1.6.7 is a diagnostic build: Start.io test ads are enabled and one test
+ * interstitial is auto-shown once per process after a successful preload.
+ * Production frequency caps remain available through onNaturalBreak().
  */
 public final class StartioAds {
     private static final String TAG = "StartioAds";
@@ -38,6 +38,8 @@ public final class StartioAds {
     private volatile boolean sdkInitialized;
     private volatile boolean loading;
     private volatile boolean ready;
+    private volatile boolean diagnosticShownThisProcess;
+    private volatile boolean diagnosticShowPending;
     private volatile String lastStatus = "초기화 대기";
     private volatile StartAppAd interstitialAd;
     private volatile WeakReference<Activity> activityRef = new WeakReference<>(null);
@@ -52,20 +54,22 @@ public final class StartioAds {
         }
 
         try {
-            // Current Start.io SDK initialization API. Return Ads stay disabled;
-            // No Limit Music uses only manually triggered standard interstitials.
+            StartAppSDK.setTestAdsEnabled(BuildConfig.STARTIO_TEST_MODE);
+            lastStatus = BuildConfig.STARTIO_TEST_MODE ? "TEST MODE · SDK 초기화 중" : "SDK 초기화 중";
+
             StartAppSDK.initParams(app.getApplicationContext(), appId)
                     .setReturnAdsEnabled(false)
                     .setCallback(() -> {
                         sdkInitialized = true;
-                        lastStatus = "SDK 초기화 완료";
+                        lastStatus = BuildConfig.STARTIO_TEST_MODE
+                                ? "TEST MODE · SDK 초기화 완료"
+                                : "SDK 초기화 완료";
                         Activity activity = activityRef.get();
                         if (activity != null) {
                             activity.runOnUiThread(() -> prepare(activity));
                         }
                     })
                     .init();
-            lastStatus = "SDK 초기화 중";
         } catch (Throwable t) {
             lastStatus = "초기화 실패 · " + compact(t);
             Log.w(TAG, "Start.io SDK initialization failed", t);
@@ -96,7 +100,7 @@ public final class StartioAds {
         if (!sdkInitialized || loading || ready) return;
 
         loading = true;
-        lastStatus = "광고 로딩 중";
+        lastStatus = BuildConfig.STARTIO_TEST_MODE ? "TEST MODE · 광고 로딩 중" : "광고 로딩 중";
 
         final StartAppAd candidate = new StartAppAd(activity);
         interstitialAd = candidate;
@@ -106,8 +110,18 @@ public final class StartioAds {
                 public void onReceiveAd(@NonNull Ad ad) {
                     loading = false;
                     ready = true;
-                    lastStatus = "광고 준비됨";
+                    lastStatus = BuildConfig.STARTIO_TEST_MODE
+                            ? "TEST MODE · 광고 준비됨"
+                            : "광고 준비됨";
                     Log.i(TAG, "Start.io interstitial ready");
+
+                    Activity current = activityRef.get();
+                    boolean shouldAutoShow = BuildConfig.STARTIO_DIAGNOSTIC_AUTOSHOW
+                            && !diagnosticShownThisProcess;
+                    if ((diagnosticShowPending || shouldAutoShow) && current != null) {
+                        diagnosticShowPending = false;
+                        current.runOnUiThread(() -> showDiagnosticAd(current));
+                    }
                 }
 
                 @Override
@@ -115,7 +129,8 @@ public final class StartioAds {
                     loading = false;
                     ready = false;
                     String error = ad == null ? "" : ad.getErrorMessage();
-                    lastStatus = "광고 로드 실패" + (error == null || error.trim().isEmpty() ? "" : " · " + error.trim());
+                    lastStatus = "광고 로드 실패"
+                            + (error == null || error.trim().isEmpty() ? "" : " · " + error.trim());
                     Log.w(TAG, lastStatus);
                 }
             });
@@ -128,8 +143,50 @@ public final class StartioAds {
     }
 
     /**
-     * Call only after a genuine user action such as successfully enqueueing
-     * a new music save. Returns true only when a preloaded ad was displayed.
+     * Diagnostic path: bypasses frequency caps and asks for a Start.io TEST ad.
+     * If the ad is not ready yet, it will be shown immediately after load succeeds.
+     */
+    public synchronized boolean showDiagnosticAd(Activity activity) {
+        if (!isConfigured() || activity == null || activity.isFinishing()) return false;
+        if (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed()) return false;
+        activityRef = new WeakReference<>(activity);
+
+        if (!ready || interstitialAd == null) {
+            diagnosticShowPending = true;
+            lastStatus = loading
+                    ? "TEST MODE · 로딩 완료 후 자동 표시"
+                    : "TEST MODE · 테스트 광고 요청";
+            prepare(activity);
+            return false;
+        }
+
+        try {
+            boolean shown = interstitialAd.showAd();
+            if (shown) {
+                diagnosticShownThisProcess = true;
+                diagnosticShowPending = false;
+                lastStatus = "TEST MODE · 광고 표시 성공";
+                ready = false;
+                loading = false;
+                interstitialAd = null;
+            } else {
+                ready = false;
+                interstitialAd = null;
+                lastStatus = "TEST MODE · showAd=false";
+            }
+            return shown;
+        } catch (Throwable t) {
+            ready = false;
+            loading = false;
+            interstitialAd = null;
+            lastStatus = "TEST MODE · 표시 예외 · " + compact(t);
+            Log.w(TAG, "Start.io diagnostic show failed", t);
+            return false;
+        }
+    }
+
+    /**
+     * Production path used after a genuine user save action.
      */
     public synchronized boolean onNaturalBreak(Activity activity) {
         if (!isConfigured() || activity == null || activity.isFinishing()) return false;
@@ -192,6 +249,6 @@ public final class StartioAds {
         String m = t.getMessage();
         if (m == null || m.trim().isEmpty()) return t.getClass().getSimpleName();
         m = m.replace('\n', ' ').replace('\r', ' ').trim();
-        return m.length() > 100 ? m.substring(0, 100) + "…" : m;
+        return m.length() > 120 ? m.substring(0, 120) + "…" : m;
     }
 }
