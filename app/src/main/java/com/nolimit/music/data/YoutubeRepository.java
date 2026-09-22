@@ -60,9 +60,9 @@ public final class YoutubeRepository {
     // Anonymous ytmusicapi uses a daily WEB_REMIX client version. A stale fixed
     // version can be soft-blocked, so generate today's UTC identity at runtime.
     private static final String YTM_CLIENT_VERSION_SUFFIX = ".01.00";
-    private static final String YTM_WEB_REMIX_CLIENT_ID = "67";
+    // Keep this aligned with ytmusicapi's anonymous browser transport.
     private static final String YTM_USER_AGENT =
-            "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0";
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:88.0) Gecko/20100101 Firefox/88.0";
     private static final String YTM_CONSENT_COOKIE = "SOCS=CAI";
     private static final Pattern YTCFG_SET = Pattern.compile(
             "(?s)ytcfg\\.set\\s*\\(\\s*(\\{.+?\\})\\s*\\)\\s*;");
@@ -227,7 +227,7 @@ public final class YoutubeRepository {
 
         // Match current ytmusicapi's anonymous transport first: WEB_REMIX context,
         // current daily client version, visitor id when available, and no API key.
-        String anonymousEndpoint = "https://music.youtube.com/youtubei/v1/search?alt=json&prettyPrint=false";
+        String anonymousEndpoint = "https://music.youtube.com/youtubei/v1/search?alt=json";
         String[] params = new String[]{YTM_SONGS_PARAMS, YTM_SONGS_PARAMS_ALT, ""};
         String[] labels = new String[]{"songs-web", "songs-alt", "unfiltered"};
         for (int i = 0; i < params.length; i++) {
@@ -239,6 +239,22 @@ public final class YoutubeRepository {
                 if (merged.size() >= limit) break;
             } catch (Exception e) {
                 attempts.add("anon-" + labels[i] + "=" + compactError(e));
+            }
+        }
+
+        // A few Android/network combinations reach the Google APIs host more reliably
+        // than music.youtube.com. It is the same Innertube search protocol, using the
+        // public WEB_REMIX key and the same client context.
+        if (merged.isEmpty() && config.apiKey != null && !config.apiKey.isEmpty()) {
+            try {
+                String googleApisEndpoint = "https://youtubei.googleapis.com/youtubei/v1/search?alt=json&key="
+                        + URLEncoder.encode(config.apiKey, StandardCharsets.UTF_8);
+                List<SearchResult> batch = requestYoutubeMusicInnertube(
+                        googleApisEndpoint, query, YTM_SONGS_PARAMS, batchLimit, config);
+                appendUnique(merged, seen, batch, Math.max(limit * 2, 60));
+                attempts.add("googleapis-songs=" + batch.size());
+            } catch (Exception e) {
+                attempts.add("googleapis-songs=" + compactError(e));
             }
         }
 
@@ -341,7 +357,6 @@ public final class YoutubeRepository {
 
     private YtmConfig loadYtmConfig() {
         String apiKey = YTM_FALLBACK_API_KEY;
-        String version = currentYtmClientVersion();
         String visitor = "";
         try {
             String page = readYtmUrl("https://music.youtube.com/");
@@ -358,7 +373,6 @@ public final class YoutubeRepository {
                     try {
                         JSONObject cfg = new JSONObject(json);
                         apiKey = firstNonEmpty(cfg.optString("INNERTUBE_API_KEY"), apiKey);
-                        version = firstNonEmpty(cfg.optString("INNERTUBE_CLIENT_VERSION"), version);
                         visitor = firstNonEmpty(cfg.optString("VISITOR_DATA"), visitor);
                     } catch (Exception ignored) { }
                 }
@@ -376,8 +390,9 @@ public final class YoutubeRepository {
                     "\\"VISITOR_DATA\\"\\s*:\\s*\\"([^\\"]+)\\"",
                     visitor);
         } catch (Exception ignored) { }
-        if (version == null || version.trim().isEmpty()) version = currentYtmClientVersion();
-        return new YtmConfig(apiKey, version, visitor);
+        // WEB_REMIX expects the daily anonymous version. Never replace it with the
+        // generic INNERTUBE_CLIENT_VERSION found in the page bootstrap.
+        return new YtmConfig(apiKey, currentYtmClientVersion(), visitor);
     }
 
     static String currentYtmClientVersion() {

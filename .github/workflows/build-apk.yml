@@ -72,5 +72,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: no-limit-music-v1.7.3-debug
+          name: no-limit-music-v1.7.4-debug
           path: app/build/outputs/apk/debug/app-debug.apk

@@ -398,7 +398,15 @@ public final class MainActivity extends AppCompatActivity {
     private void updatePlayerProgress(){if(controller==null||playerBar==null||playerBar.getVisibility()!=View.VISIBLE)return;long d=effectiveDurationMs(),p=Math.max(0L,controller.getCurrentPosition());totalTime.setText(formatTime(d));if(!userSeeking){currentTime.setText(formatTime(p));playerSeek.setProgress(d>0?(int)Math.min(1000L,p*1000L/d):0);}}
     private static String formatTime(long ms){if(ms<=0)return"0:00";long s=ms/1000L,h=s/3600L,m=(s%3600L)/60L,sec=s%60L;return h>0?String.format(Locale.ROOT,"%d:%02d:%02d",h,m,sec):String.format(Locale.ROOT,"%d:%02d",m,sec);}
 
-    private void refreshAll(){refreshDashboard();renderPlaylistFolders();renderActivePlaylist();}
+    private void refreshAll(){
+        refreshDashboard();
+        // Hidden playlist views do not need to be rebuilt after every completed
+        // download. They are rendered when the user opens the Playlist tab.
+        if(sectionPlaylist!=null&&sectionPlaylist.getVisibility()==View.VISIBLE){
+            renderPlaylistFolders();
+            renderActivePlaylist();
+        }
+    }
     private void refreshDashboard(){List<Track>tracks=library.load();int liked=0,played=0;for(Track t:tracks){if(t.liked)liked++;if(t.playCount>0)played++;}recentCount.setText(tracks.size()+"곡");likedCount.setText(liked+"곡");mostPlayedCount.setText(played+"곡");}
     private List<Track> getActiveTracks(){if(SMART_RECENT.equals(activeSmart))return library.recent(Integer.MAX_VALUE);if(SMART_LIKED.equals(activeSmart))return library.liked();if(SMART_MOST.equals(activeSmart))return library.mostPlayed(Integer.MAX_VALUE);return playlists.tracks(activePlaylistId);}
     private void openSmartPlaylist(String type){activeSmart=type;switchTab("playlist");renderActivePlaylist();}
