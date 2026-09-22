@@ -381,10 +381,10 @@ public final class YoutubeRepository {
 
             // Loose fallbacks for page variants that inline the values elsewhere.
             apiKey = firstRegex(page,
-                    "\\"INNERTUBE_API_KEY\\"\\s*:\\s*\\"([^\\"]+)\\"",
+                    "\"INNERTUBE_API_KEY\"\\s*:\\s*\"([^\"]+)\"",
                     apiKey);
             visitor = firstRegex(page,
-                    "\\"VISITOR_DATA\\"\\s*:\\s*\\"([^\\"]+)\\"",
+                    "\"VISITOR_DATA\"\\s*:\\s*\"([^\"]+)\"",
                     visitor);
         } catch (Exception ignored) { }
         // WEB_REMIX expects the daily anonymous version. Never replace it with the
