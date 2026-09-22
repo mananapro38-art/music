@@ -383,9 +383,6 @@ public final class YoutubeRepository {
             apiKey = firstRegex(page,
                     "\\"INNERTUBE_API_KEY\\"\\s*:\\s*\\"([^\\"]+)\\"",
                     apiKey);
-            version = firstRegex(page,
-                    "\\"INNERTUBE_CLIENT_VERSION\\"\\s*:\\s*\\"([^\\"]+)\\"",
-                    version);
             visitor = firstRegex(page,
                     "\\"VISITOR_DATA\\"\\s*:\\s*\\"([^\\"]+)\\"",
                     visitor);
