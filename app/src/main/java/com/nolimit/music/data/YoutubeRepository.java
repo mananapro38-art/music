@@ -23,12 +23,15 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -54,9 +57,9 @@ public final class YoutubeRepository {
     // return an empty 200 response for the web filter but populate this one.
     private static final String YTM_SONGS_PARAMS_ALT = "EgWKAQIIAWoKEAkQBRAKEAMQBA==";
     private static final String YTM_FALLBACK_API_KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30";
-    // Known-good WEB_REMIX identity from current yt-dlp web_music client. This is
-    // used when music.youtube.com homepage bootstrap is blocked on-device.
-    private static final String YTM_KNOWN_GOOD_CLIENT_VERSION = "1.20260707.12.00";
+    // Anonymous ytmusicapi uses a daily WEB_REMIX client version. A stale fixed
+    // version can be soft-blocked, so generate today's UTC identity at runtime.
+    private static final String YTM_CLIENT_VERSION_SUFFIX = ".01.00";
     private static final String YTM_WEB_REMIX_CLIENT_ID = "67";
     private static final String YTM_USER_AGENT =
             "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0";
@@ -222,49 +225,70 @@ public final class YoutubeRepository {
         Set<String> seen = new HashSet<>();
         int batchLimit = Math.max(limit, 40);
 
-        String endpoint = "https://music.youtube.com/youtubei/v1/search?key="
-                + URLEncoder.encode(config.apiKey, StandardCharsets.UTF_8)
-                + "&prettyPrint=false";
-
-        // Try both known Songs filters plus unfiltered search and merge them.
-        // Do not stop at the first six results: that was the reason artist searches
-        // such as "로이킴" looked artificially tiny.
-        String[] params = new String[]{YTM_SONGS_PARAMS_ALT, YTM_SONGS_PARAMS, ""};
-        String[] labels = new String[]{"songs-mobile", "songs-web", "unfiltered"};
+        // Match current ytmusicapi's anonymous transport first: WEB_REMIX context,
+        // current daily client version, visitor id when available, and no API key.
+        String anonymousEndpoint = "https://music.youtube.com/youtubei/v1/search?alt=json&prettyPrint=false";
+        String[] params = new String[]{YTM_SONGS_PARAMS, YTM_SONGS_PARAMS_ALT, ""};
+        String[] labels = new String[]{"songs-web", "songs-alt", "unfiltered"};
         for (int i = 0; i < params.length; i++) {
             try {
-                JSONObject client = new JSONObject()
-                        .put("clientName", "WEB_REMIX")
-                        .put("clientVersion", config.clientVersion)
-                        .put("hl", "ko")
-                        .put("gl", "KR");
-                if (config.visitorData != null && !config.visitorData.isEmpty()) {
-                    client.put("visitorData", config.visitorData);
-                }
-                JSONObject body = new JSONObject()
-                        .put("context", new JSONObject().put("client", client))
-                        .put("query", query);
-                if (!params[i].isEmpty()) body.put("params", params[i]);
-
-                JSONObject response = new JSONObject(postJson(endpoint, body.toString(), config));
-                List<SearchResult> batch = new ArrayList<>();
-                Set<String> batchSeen = new HashSet<>();
-                collectMusicResponsiveItems(response, batch, batchSeen, batchLimit);
-
-                // Generic YouTube renderers are only a rescue path for unfiltered
-                // responses. They are marked as video/other, never as catalog audio.
-                if (batch.isEmpty() && params[i].isEmpty()) {
-                    collectGenericVideoItems(response, batch, batchSeen, batchLimit);
-                }
+                List<SearchResult> batch = requestYoutubeMusicInnertube(
+                        anonymousEndpoint, query, params[i], batchLimit, config);
                 appendUnique(merged, seen, batch, Math.max(limit * 2, 60));
-                attempts.add(labels[i] + "=" + batch.size());
+                attempts.add("anon-" + labels[i] + "=" + batch.size());
+                if (merged.size() >= limit) break;
             } catch (Exception e) {
-                attempts.add(labels[i] + "=" + compactError(e));
+                attempts.add("anon-" + labels[i] + "=" + compactError(e));
+            }
+        }
+
+        // Some regions still accept/expect the public WEB_REMIX key. Only try this
+        // compatibility request if the anonymous form returned nothing.
+        if (merged.isEmpty() && config.apiKey != null && !config.apiKey.isEmpty()) {
+            try {
+                String keyedEndpoint = "https://music.youtube.com/youtubei/v1/search?alt=json&key="
+                        + URLEncoder.encode(config.apiKey, StandardCharsets.UTF_8)
+                        + "&prettyPrint=false";
+                List<SearchResult> batch = requestYoutubeMusicInnertube(
+                        keyedEndpoint, query, YTM_SONGS_PARAMS, batchLimit, config);
+                appendUnique(merged, seen, batch, Math.max(limit * 2, 60));
+                attempts.add("keyed-songs=" + batch.size());
+            } catch (Exception e) {
+                attempts.add("keyed-songs=" + compactError(e));
             }
         }
 
         if (!merged.isEmpty()) return merged;
         throw new IllegalStateException(String.join(" / ", attempts));
+    }
+
+    private List<SearchResult> requestYoutubeMusicInnertube(String endpoint, String query,
+                                                             String params, int limit,
+                                                             YtmConfig config) throws Exception {
+        JSONObject client = new JSONObject()
+                .put("clientName", "WEB_REMIX")
+                .put("clientVersion", config.clientVersion)
+                .put("hl", "ko")
+                .put("gl", "KR");
+        if (config.visitorData != null && !config.visitorData.isEmpty()) {
+            client.put("visitorData", config.visitorData);
+        }
+        JSONObject context = new JSONObject()
+                .put("client", client)
+                .put("user", new JSONObject());
+        JSONObject body = new JSONObject()
+                .put("context", context)
+                .put("query", query);
+        if (params != null && !params.isEmpty()) body.put("params", params);
+
+        JSONObject response = new JSONObject(postJson(endpoint, body.toString(), config));
+        List<SearchResult> batch = new ArrayList<>();
+        Set<String> batchSeen = new HashSet<>();
+        collectMusicResponsiveItems(response, batch, batchSeen, limit);
+        if (batch.isEmpty() && (params == null || params.isEmpty())) {
+            collectGenericVideoItems(response, batch, batchSeen, limit);
+        }
+        return batch;
     }
 
     private List<SearchResult> searchYoutubeMusicPage(String query, int limit) throws Exception {
@@ -317,35 +341,49 @@ public final class YoutubeRepository {
 
     private YtmConfig loadYtmConfig() {
         String apiKey = YTM_FALLBACK_API_KEY;
-        String version = YTM_KNOWN_GOOD_CLIENT_VERSION;
+        String version = currentYtmClientVersion();
         String visitor = "";
         try {
             String page = readYtmUrl("https://music.youtube.com/");
 
             // ytmusicapi gets anonymous visitor context from ytcfg.set(...).
-            // Parse that object first instead of depending on a single raw string layout.
-            Matcher ytcfg = YTCFG_SET.matcher(page);
-            while (ytcfg.find()) {
-                try {
-                    JSONObject cfg = new JSONObject(ytcfg.group(1));
-                    apiKey = firstNonEmpty(cfg.optString("INNERTUBE_API_KEY"), apiKey);
-                    version = firstNonEmpty(cfg.optString("INNERTUBE_CLIENT_VERSION"), version);
-                    visitor = firstNonEmpty(cfg.optString("VISITOR_DATA"), visitor);
-                } catch (Exception ignored) { }
+            // Parse complete balanced JSON objects because ytcfg contains nested objects
+            // and a non-greedy regex can stop at the first inner closing brace.
+            int from = 0;
+            while (from < page.length()) {
+                int markerAt = page.indexOf("ytcfg.set", from);
+                if (markerAt < 0) break;
+                String json = extractAssignedJson(page.substring(markerAt), "ytcfg.set");
+                if (!json.isEmpty()) {
+                    try {
+                        JSONObject cfg = new JSONObject(json);
+                        apiKey = firstNonEmpty(cfg.optString("INNERTUBE_API_KEY"), apiKey);
+                        version = firstNonEmpty(cfg.optString("INNERTUBE_CLIENT_VERSION"), version);
+                        visitor = firstNonEmpty(cfg.optString("VISITOR_DATA"), visitor);
+                    } catch (Exception ignored) { }
+                }
+                from = markerAt + "ytcfg.set".length();
             }
 
-            // Keep loose fallbacks for page variants that inline the values elsewhere.
+            // Loose fallbacks for page variants that inline the values elsewhere.
             apiKey = firstRegex(page,
-                    "\\\"INNERTUBE_API_KEY\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"",
+                    "\\"INNERTUBE_API_KEY\\"\\s*:\\s*\\"([^\\"]+)\\"",
                     apiKey);
             version = firstRegex(page,
-                    "\\\"INNERTUBE_CLIENT_VERSION\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"",
+                    "\\"INNERTUBE_CLIENT_VERSION\\"\\s*:\\s*\\"([^\\"]+)\\"",
                     version);
             visitor = firstRegex(page,
-                    "\\\"VISITOR_DATA\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"",
+                    "\\"VISITOR_DATA\\"\\s*:\\s*\\"([^\\"]+)\\"",
                     visitor);
         } catch (Exception ignored) { }
+        if (version == null || version.trim().isEmpty()) version = currentYtmClientVersion();
         return new YtmConfig(apiKey, version, visitor);
+    }
+
+    static String currentYtmClientVersion() {
+        SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd", Locale.US);
+        format.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return "1." + format.format(new Date()) + YTM_CLIENT_VERSION_SUFFIX;
     }
 
     private static String firstRegex(String text, String expression, String fallback) {
@@ -373,11 +411,9 @@ public final class YoutubeRepository {
         conn.setRequestProperty("Referer", "https://music.youtube.com/");
         conn.setRequestProperty("X-Goog-Api-Format-Version", "1");
         conn.setRequestProperty("Cookie", YTM_CONSENT_COOKIE);
-        // Browser requests carry the same WEB_REMIX identity in both body context and
-        // client headers. Keep them synchronized; this also fixes devices where the
-        // server rejects header-less WEB_REMIX requests.
-        conn.setRequestProperty("X-YouTube-Client-Name", YTM_WEB_REMIX_CLIENT_ID);
-        conn.setRequestProperty("X-YouTube-Client-Version", config.clientVersion);
+        // Keep the request close to ytmusicapi's anonymous WEB_REMIX transport.
+        // The client identity lives in the JSON context; forcing stale numeric client
+        // headers can cause otherwise valid anonymous searches to be rejected.
         if (config.visitorData != null && !config.visitorData.isEmpty()) {
             conn.setRequestProperty("X-Goog-Visitor-Id", config.visitorData);
         }

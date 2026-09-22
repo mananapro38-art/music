@@ -129,7 +129,10 @@ public final class MainActivity extends AppCompatActivity {
     private String ambientTrackId = "";
 
     private final DownloadQueueManager.Listener downloadListener = new DownloadQueueManager.Listener() {
-        @Override public void onQueueChanged() { refreshAll(); }
+        @Override public void onQueueChanged() {
+            // Queue state changes happen several times per download. Re-rendering the
+            // whole library here made consecutive chart downloads look like an ANR.
+        }
         @Override public void onProgress(String id, int progress, String title) {
             setAllDownloadProgress(id, progress);
             if (engineStatus != null) engineStatus.setText("저장 중 " + progress + "% · " + title);
@@ -396,7 +399,7 @@ public final class MainActivity extends AppCompatActivity {
     private static String formatTime(long ms){if(ms<=0)return"0:00";long s=ms/1000L,h=s/3600L,m=(s%3600L)/60L,sec=s%60L;return h>0?String.format(Locale.ROOT,"%d:%02d:%02d",h,m,sec):String.format(Locale.ROOT,"%d:%02d",m,sec);}
 
     private void refreshAll(){refreshDashboard();renderPlaylistFolders();renderActivePlaylist();}
-    private void refreshDashboard(){recentCount.setText(library.recent(Integer.MAX_VALUE).size()+"곡");likedCount.setText(library.liked().size()+"곡");mostPlayedCount.setText(library.mostPlayed(Integer.MAX_VALUE).size()+"곡");}
+    private void refreshDashboard(){List<Track>tracks=library.load();int liked=0,played=0;for(Track t:tracks){if(t.liked)liked++;if(t.playCount>0)played++;}recentCount.setText(tracks.size()+"곡");likedCount.setText(liked+"곡");mostPlayedCount.setText(played+"곡");}
     private List<Track> getActiveTracks(){if(SMART_RECENT.equals(activeSmart))return library.recent(Integer.MAX_VALUE);if(SMART_LIKED.equals(activeSmart))return library.liked();if(SMART_MOST.equals(activeSmart))return library.mostPlayed(Integer.MAX_VALUE);return playlists.tracks(activePlaylistId);}
     private void openSmartPlaylist(String type){activeSmart=type;switchTab("playlist");renderActivePlaylist();}
     private void openCustomPlaylist(String id){activeSmart=null;activePlaylistId=id;switchTab("playlist");renderPlaylistFolders();renderActivePlaylist();}

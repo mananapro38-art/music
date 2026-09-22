@@ -11,7 +11,9 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public final class PlaylistStore {
@@ -131,8 +133,14 @@ public final class PlaylistStore {
         Playlist playlist = get(playlistId);
         List<Track> result = new ArrayList<>();
         if (playlist == null) return result;
+
+        // Parse the library once. Calling library.find(id) for every playlist item
+        // reparses the complete SharedPreferences JSON each time and can block the UI
+        // badly after several downloads complete close together.
+        Map<String, Track> byId = new HashMap<>();
+        for (Track track : library.load()) byId.put(track.id, track);
         for (String id : playlist.trackIds) {
-            Track track = library.find(id);
+            Track track = byId.get(id);
             if (track != null) result.add(track);
         }
         return result;
