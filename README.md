@@ -1,4 +1,4 @@
-# No Limit Music v1.7.4
+# No Limit Music v1.7.5
 
 무료 Android 음악 앱 **No Limit Music**의 소스 저장소입니다.
 
@@ -19,6 +19,8 @@
 - 음악 검색, YouTube 차트, AI DJ
 - YouTube Music 익명 WEB_REMIX 검색을 현재 클라이언트 규격으로 갱신하고 실패 시 다중 경로로 자동 보완
 - WEB_REMIX 일일 클라이언트 버전을 홈페이지의 다른 클라이언트 버전으로 덮어쓰지 않도록 수정
+- YouTube Music 직접 검색을 익명 WEB_REMIX → 브라우저 클라이언트 헤더 → Google APIs → ANDROID_MUSIC 순으로 재시도
+- 저장된 곡의 검색원 표시에 YouTube Music 결과 배지를 반영하고 진단 정보에 마지막 YTM 오류를 포함
 - 연속 저장 시 플레이리스트 전체 재파싱을 줄여 UI 멈춤 현상 완화
 - 플레이리스트 화면이 보이지 않을 때 불필요한 전체 목록 렌더링을 생략
 - 최근 추가 / 좋아요 / 많이 재생한 곡 스마트 플레이리스트
@@ -32,7 +34,7 @@
 
 ## 설치 및 업데이트
 
-공식 웹사이트에 현재 공개된 설치 파일은 v1.6.9입니다. v1.7.4 빌드는 GitHub Actions artifact로 먼저 생성됩니다.
+공식 웹사이트에 현재 공개된 설치 파일은 v1.6.9입니다. v1.7.5 빌드는 GitHub Actions artifact로 먼저 생성됩니다.
 
 https://nolimitmusic.pages.dev/NoLimitMusic-v1.6.9.apk
 

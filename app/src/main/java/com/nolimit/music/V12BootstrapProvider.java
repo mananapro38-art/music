@@ -31,6 +31,7 @@ import com.nolimit.music.data.DownloadTaskStore;
 import com.nolimit.music.data.LibraryStore;
 import com.nolimit.music.data.YoutubeRepository;
 import com.nolimit.music.model.Track;
+import com.nolimit.music.util.NetworkUtil;
 
 import java.util.HashMap;
 import java.util.List;
@@ -128,7 +129,13 @@ public final class V12BootstrapProvider extends ContentProvider {
         s.append("Device: ").append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append('\n');
         SharedPreferences settings = activity.getSharedPreferences(YoutubeRepository.SETTINGS_PREFS, Context.MODE_PRIVATE);
         s.append("Search source: ").append(settings.getString(YoutubeRepository.KEY_SEARCH_SOURCE, "music_first")).append('\n');
-        s.append("Mobile download: ").append(settings.getBoolean("allow_mobile_download", false)).append('\n');
+        String lastYtm = new YoutubeRepository(activity).getLastYtmError();
+        if (lastYtm != null && !lastYtm.trim().isEmpty()) {
+            s.append("Last YTM error: ").append(lastYtm.replace('\n', ' ').replace('\r', ' ')).append('\n');
+        }
+        boolean allowMobile = settings.getBoolean("allow_mobile_download", false);
+        s.append("Mobile download: ").append(allowMobile).append('\n');
+        s.append("Can download now: ").append(NetworkUtil.canDownload(activity, allowMobile)).append('\n');
         DownloadQueueManager queue = DownloadQueueManager.get(activity);
         s.append("Download paused: ").append(queue.isPaused()).append('\n');
         s.append("Free storage: ").append(String.format(Locale.ROOT, "%.1f GB", queue.freeBytes() / 1073741824d)).append('\n');

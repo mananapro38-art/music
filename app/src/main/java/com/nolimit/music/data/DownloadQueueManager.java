@@ -175,10 +175,11 @@ public final class DownloadQueueManager {
     private static String sourceName(SearchResult item) {
         String id = item.id == null ? "" : item.id;
         String url = item.url == null ? "" : item.url.toLowerCase();
+        String badge = item.badge == null ? "" : item.badge.toLowerCase();
         if (id.startsWith("sc_") || url.contains("soundcloud.com")) return "SoundCloud";
         if (id.startsWith("au_") || url.startsWith("audius:") || url.contains("audius.co")) return "Audius";
         if (id.startsWith("bc_") || url.contains("bandcamp.com")) return "Bandcamp";
-        if (url.contains("music.youtube.com")) return "YouTube Music";
+        if (badge.contains("youtube music") || badge.contains("ytm_") || url.contains("music.youtube.com")) return "YouTube Music";
         return "YouTube";
     }
 

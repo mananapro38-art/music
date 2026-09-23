@@ -304,6 +304,8 @@ public final class MainActivity extends AppCompatActivity {
                         String detail=compactText(ytmError,96);
                         engineStatus.setText("YouTube Music 직접 연결 실패 · YouTube 대체 "+list.size()+"곡"
                                 +(detail.isEmpty()?"":" · "+detail));
+                    }else if("youtube_music".equals(selectedSource)){
+                        engineStatus.setText("YouTube Music 검색 완료 · "+list.size()+"곡");
                     }else{
                         engineStatus.setText("검색 완료 · "+list.size()+"곡");
                     }
